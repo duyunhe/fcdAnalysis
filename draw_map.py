@@ -2,7 +2,7 @@
 # @Time    : 2018/8/14 11:00
 # @Author  : 
 # @简介    : 
-# @File    : drawMap.py
+# @File    : draw_map.py
 
 import matplotlib.pyplot as plt
 
@@ -26,3 +26,10 @@ def draw_edge_list(edge_list):
             draw_edge(edge, 'gold')
         else:
             draw_edge(edge, 'brown')
+
+
+def draw_trace(trace):
+    if len(trace) == 0:
+        return
+    x, y = zip(*trace)
+    plt.plot(x, y, 'b', linewidth=2)

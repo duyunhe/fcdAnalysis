@@ -2,7 +2,7 @@
 # @Time    : 2018/8/10 10:02
 # @Author  : 
 # @简介    : 获取taxi数据源,ETL成json并转发至目的地队列
-# @File    : fetchTaxiData.py
+# @File    : fetch_taxi_data.py
 
 
 import json

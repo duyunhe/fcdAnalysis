@@ -2,15 +2,15 @@
 # @Time    : 2018/8/10 16:00
 # @Author  : 
 # @简介    : 获取浮动车定位信息
-# @File    : fetchFCDData.py
+# @File    : fetch_FCD_data.py
 
 
 import json
 import time
 import stomp
 from geo import bl2xy
-from mapMatching import MapMatching
-from mapMatching import TaxiData
+from map_matching import MapMatching
+from map_matching import TaxiData
 
 mm = MapMatching()
 

@@ -185,4 +185,3 @@ def draw_raw(traj, ax):
         xlist.append(point.px)
         ylist.append(point.py)
     ax.plot(xlist, ylist, marker='o', linestyle='--', color='k', lw=1)
-

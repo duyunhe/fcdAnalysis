@@ -30,6 +30,7 @@ class MapNode(object):
         self.link_list = []         # 连接到其他点的列表, [[edge0, node0], [edge1, node1]....]
         self.rlink_list = []
         self.prev_node = None       # bfs时寻找路径, MapNode
+        self.prev_edge = None
 
     def add_link(self, edge, node):
         self.link_list.append([edge, node])
