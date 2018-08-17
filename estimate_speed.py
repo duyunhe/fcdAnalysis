@@ -11,6 +11,10 @@ from map_struct import DistNode
 import Queue
 import numpy as np
 
+ab_cnt = 0
+error_cnt = 0
+normal_cnt = 0
+
 
 def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     """
@@ -29,9 +33,17 @@ def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     if cur_spd <= ave_spd <= last_spd:
         abnormal = False
     if abnormal:
-        speed_list = [ave_spd] * len(travel_list)
+        if ave_spd > max(cur_spd, last_spd) + 15:
+            global error_cnt
+            error_cnt += 1
+            speed_list = [(cur_spd + last_spd) / 2] * len(travel_list)
+        else:
+            speed_list = [ave_spd] * len(travel_list)
         edge_list, dist_list = zip(*travel_list)
         seg_speed_list = zip(edge_list, speed_list)
+
+        global ab_cnt
+        ab_cnt += 1
         return seg_speed_list
 
     # 假设浮动车在端点上的速度沿着长度做线性变化
@@ -70,6 +82,8 @@ def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     edge_list, dist_list = zip(*travel_list)
     seg_speed_list = zip(edge_list, speed_list)
 
+    global normal_cnt
+    normal_cnt += 1
     return seg_speed_list
 
 
@@ -164,7 +178,9 @@ def estimate_road_speed(last_edge, cur_edge, last_point, cur_point, last_data, c
     else:
         cur_node = n0
     dist = calc_dist(cur_point, cur_node.point)
-    travel = [[cur_edge, dist]]  # travel edge list, from last edge to current edge
+    travel = []  # travel edge list, from last edge to current edge
+    if dist > 0:
+        travel.append([cur_edge, dist])
 
     # 逆推
     while cur_node != last_edge.node0 and cur_node != last_edge.node1:
@@ -175,7 +191,8 @@ def estimate_road_speed(last_edge, cur_edge, last_point, cur_point, last_data, c
 
     # 起点
     dist = calc_dist(last_point, cur_node.point)
-    travel.append([last_edge, dist])
+    if dist > 0:
+        travel.append([last_edge, dist])
     # 所以要倒序
     travel = travel[::-1]
 

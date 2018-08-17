@@ -154,7 +154,7 @@ class MapMatching(object):
                 x.append(node.point[0])
                 y.append(node.point[1])
             c = 'k'
-            plt.plot(x, y, c, alpha=0.3)
+            plt.plot(x, y, alpha=0.3)
 
         # for e in self.mi.map_edge:
         #     if e.edge_index == 370 or e.edge_index == 371:

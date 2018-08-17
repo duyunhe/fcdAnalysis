@@ -32,7 +32,7 @@ def match2road(veh, data, cnt):
         dt = (data.stime - last_data.stime).total_seconds()
         dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
         esti = True
-        if dt <= 0 or dt > 90:
+        if dt <= 10 or dt > 90:
             esti = False
         if dist < 10:
             esti = False
@@ -43,6 +43,11 @@ def match2road(veh, data, cnt):
     point_list[veh], edge_list[veh] = cur_point, cur_edge
     data_list[veh] = data
     return cur_point, cur_edge, speed_list
+
+
+def draw_map():
+    mm.plot_map()
+
 
 
 
