@@ -146,20 +146,36 @@ class MapMatching(object):
         X = np.array(nd_list)
         return KDTree(X, leaf_size=2, metric="euclidean"), X
 
-    def plot_map(self):
+    def plot_map(self, road_speed):
+        """
+        根据路况绘制地图
+        :param road_speed: {rid:speed}
+        :return: 
+        """
         for rid, road in self.mi.map_road.iteritems():
             node_list = road.node_list
             x, y = [], []
             for node in node_list:
                 x.append(node.point[0])
                 y.append(node.point[1])
-            c = 'k'
-            plt.plot(x, y, alpha=0.3)
+            try:
+                speed = road_speed[rid]
+                if speed < 5:
+                    c = 'maroon'
+                elif 5 < speed < 15:
+                    c = 'red'
+                elif 15 < speed < 25:
+                    c = 'gold'
+                else:
+                    c = 'green'
+            except KeyError:
+                c = 'k'
+            plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
 
         # for e in self.mi.map_edge:
         #     if e.edge_index == 370 or e.edge_index == 371:
         #         draw_edge(e, 'g')
-        # plt.show()
+        plt.show()
 
     def get_candidate_first(self, taxi_data, kdt, X):
         """

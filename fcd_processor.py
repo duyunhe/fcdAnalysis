@@ -45,9 +45,8 @@ def match2road(veh, data, cnt):
     return cur_point, cur_edge, speed_list
 
 
-def draw_map():
-    mm.plot_map()
-
+def draw_map(road_speed):
+    mm.plot_map(road_speed)
 
 
 
