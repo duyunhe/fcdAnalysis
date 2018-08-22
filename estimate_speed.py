@@ -16,8 +16,36 @@ error_cnt = 0
 normal_cnt = 0
 
 
+def get_speed_list_a1(travel_list, last_spd, cur_spd, ave_spd, itv_time):
+    """
+    alpha 1.1
+    :param travel_list: 
+    :param last_spd: 
+    :param cur_spd: 
+    :param ave_spd: 
+    :param itv_time: 
+    :return: 
+    """
+    if len(travel_list) == 0:
+        return []
+
+    if ave_spd > max(cur_spd, last_spd) + 15:
+        global error_cnt
+        error_cnt += 1
+        speed_list = [(cur_spd + last_spd + ave_spd) / 3] * len(travel_list)
+    else:
+        speed_list = [ave_spd] * len(travel_list)
+    edge_list, dist_list = zip(*travel_list)
+    seg_speed_list = zip(edge_list, speed_list)
+
+    global ab_cnt
+    ab_cnt += 1
+    return seg_speed_list
+
+
 def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     """
+    alpha 1.0
     返回各个路段上估算的速度列表
     :param travel_list: 路段和距离列表 [[edge, dist] ..]
     :param last_spd: 
@@ -214,6 +242,6 @@ def estimate_road_speed(last_edge, cur_edge, last_point, cur_point, last_data, c
     trace.append(spoint)
     et = clock()
     # print "estimate,{0} ".format(cnt), et - bt
-    spd_list = get_speed_list(travel, last_spd, cur_spd, observed_spd, itv_time)
+    spd_list = get_speed_list_a1(travel, last_spd, cur_spd, observed_spd, itv_time)
 
     return trace, spd_list
