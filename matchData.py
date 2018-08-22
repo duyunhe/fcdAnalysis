@@ -41,7 +41,7 @@ def cmp1(data1, data2):
 
 def get_all_gps_data(conn, begin_time):
     str_bt = begin_time.strftime('%Y-%m-%d %H:%M:%S')
-    end_time = begin_time + timedelta(minutes=180)
+    end_time = begin_time + timedelta(minutes=120)
     str_et = end_time.strftime('%Y-%m-%d %H:%M:%S')
     sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
           "TB_GPS_1805 t where speed_time >= to_date('{0}', 'yyyy-mm-dd hh24:mi:ss') " \
@@ -149,7 +149,7 @@ def save_speed(conn, road_speed):
 def main():
     conn = oracle_util.get_connection()
     # veh = '浙AT9039'
-    begin_time = datetime.strptime('2018-05-06 0:00:00', '%Y-%m-%d %H:%M:%S')
+    begin_time = datetime.strptime('2018-05-10 0:00:00', '%Y-%m-%d %H:%M:%S')
     trace = get_all_gps_data(conn, begin_time)
     # print len(trace)
 
@@ -184,7 +184,7 @@ def main():
         print rid, S / W
         road_speed[rid] = S / W
 
-    save_speed(conn, road_speed)
+    # save_speed(conn, road_speed)
     print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
 
     et = clock()
