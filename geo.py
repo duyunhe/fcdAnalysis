@@ -3,6 +3,7 @@ from ctypes import *
 import math
 import numpy as np
 
+
 dll = WinDLL("CoordTransDLL.dll")
 
 
@@ -70,6 +71,7 @@ def calc_included_angle(s0p0, s0p1, s1p0, s1p1):
     :param s1p1: 线段1点1
     :return: 
     """
+    # numpy比math慢50%左右
     # v0 = np.array([s0p1[0] - s0p0[0], s0p1[1] - s0p0[1]])
     # v1 = np.array([s1p1[0] - s1p0[0], s1p1[1] - s1p0[1]])
     # dt = np.sqrt(np.dot(v0, v0)) * np.sqrt(np.dot(v1, v1))

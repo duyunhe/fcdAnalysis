@@ -14,6 +14,9 @@ from draw_map import draw_edge_list, draw_trace, draw_edge
 from sklearn.neighbors import KDTree
 import numpy as np
 
+import os
+os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
+
 
 class TaxiData:
     def __init__(self, px, py, stime, state, speed, car_state, direction):
@@ -171,6 +174,7 @@ class MapMatching(object):
             except KeyError:
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
+            # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:
         #     if e.edge_index == 370 or e.edge_index == 371:

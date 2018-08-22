@@ -19,7 +19,7 @@ def match2road(veh, data, cnt):
     :param veh: 车辆id
     :param data: TaxiData，见map_matching
     :param cnt:  for debug
-    :return: point, edge, speed_list[edge_index, edge_speed]
+    :return: point, edge, speed_list[edge_index, edge_speed], state
     """
     try:
         last_data, last_edge, last_point = data_list[veh], edge_list[veh], point_list[veh]
@@ -28,21 +28,25 @@ def match2road(veh, data, cnt):
     cur_point, cur_edge = mm.PNT_MATCH(data, last_point)
 
     speed_list = []
+    ret = -1
+    # 两种情况
     if last_edge is not None and cur_edge is not None:
         dt = (data.stime - last_data.stime).total_seconds()
-        dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
+        # dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
         esti = True
         if dt <= 10 or dt > 90:
-            esti = False
-        if dist < 10:
             esti = False
         if esti:
             trace, speed_list = estimate_road_speed(last_edge, cur_edge, last_point,
                                                     cur_point, last_data, data, cnt)
+        ret = 0
+    elif last_edge is None and cur_edge is not None:
+        speed_list = [[cur_edge, data.speed]]
+        ret = 1
 
     point_list[veh], edge_list[veh] = cur_point, cur_edge
     data_list[veh] = data
-    return cur_point, cur_edge, speed_list
+    return cur_point, cur_edge, speed_list, ret
 
 
 def draw_map(road_speed):

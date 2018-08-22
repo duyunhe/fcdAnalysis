@@ -157,7 +157,7 @@ def estimate_road_speed(last_edge, cur_edge, last_point, cur_point, last_data, c
     :param last_data: 上一次记录的GPS数据
     :param cur_data: 本次记录的GPS数据
     :param cnt:     for debug
-    :return: trace, travel list : travel data:[edge_index, edge_speed]
+    :return: trace, travel list : travel data:[edge, edge_speed]
     """
     bt = clock()
     spoint, epoint = last_point, cur_point
