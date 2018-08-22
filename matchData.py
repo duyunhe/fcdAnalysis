@@ -40,8 +40,9 @@ def cmp1(data1, data2):
 
 
 def get_all_gps_data(conn, begin_time):
+    bt = clock()
     str_bt = begin_time.strftime('%Y-%m-%d %H:%M:%S')
-    end_time = begin_time + timedelta(minutes=120)
+    end_time = begin_time + timedelta(hours=6)
     str_et = end_time.strftime('%Y-%m-%d %H:%M:%S')
     sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
           "TB_GPS_1805 t where speed_time >= to_date('{0}', 'yyyy-mm-dd hh24:mi:ss') " \
@@ -61,6 +62,8 @@ def get_all_gps_data(conn, begin_time):
             veh = item[7][-6:]
             taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
             trace.append(taxi_data)
+    et = clock()
+    print "get all gps data", et - bt
     return trace
 
 
@@ -135,21 +138,20 @@ def draw_points(data_list):
         x, y = data_list[i][0:2]
 
 
-def save_speed(conn, road_speed):
-    sql = "update tb_road_state set def_speed = :1 where rid = :2"
+def save_speed(conn, road_speed, dbtime):
+    sql = "insert into tb_history_speed (rid, speed, dbtime) values (:1, :2, :3)"
     tup_list = []
     for rid, speed in road_speed.iteritems():
-        tup = (speed, rid)
+        tup = (rid, speed, dbtime)
         tup_list.append(tup)
     cursor = conn.cursor()
     cursor.executemany(sql, tup_list)
     conn.commit()
 
 
-def main():
-    conn = oracle_util.get_connection()
+def main(conn, begin_time):
+    print begin_time
     # veh = '浙AT9039'
-    begin_time = datetime.strptime('2018-05-10 0:00:00', '%Y-%m-%d %H:%M:%S')
     trace = get_all_gps_data(conn, begin_time)
     # print len(trace)
 
@@ -184,16 +186,21 @@ def main():
         print rid, S / W
         road_speed[rid] = S / W
 
-    # save_speed(conn, road_speed)
-    print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+    save_speed(conn, road_speed, begin_time)
+    print estimate_speed.normal_cnt, estimate_speed.ab_cnt,  estimate_speed.error_cnt
 
     et = clock()
     print "main process {0}".format(len(trace)), et - bt
     # draw_trace(trace)
     # draw_points(mod_list)
-    draw_map(road_speed)
-    plt.show()
-    conn.close()
+    # draw_map(road_speed)
+    # plt.show()
 
 
-main()
+if __name__ == '__main__':
+    stime = datetime.strptime('2018-05-01 0:00:00', '%Y-%m-%d %H:%M:%S')
+    connection = oracle_util.get_connection()
+    for i in range(1, 10):
+        date_time = stime + timedelta(days=i)
+        main(connection, date_time)
+    connection.close()

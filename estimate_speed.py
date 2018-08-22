@@ -27,6 +27,8 @@ def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     :return: seg_speed_list 路段和速度列表 [[edge, speed], ..]
     """
     # 首先，异常情况
+    if len(travel_list) == 0:
+        return []
     abnormal = True
     if last_spd <= ave_spd <= cur_spd:
         abnormal = False
