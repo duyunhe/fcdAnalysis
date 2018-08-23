@@ -8,6 +8,7 @@ from map_struct import MapEdge, MapNode, MapRoad, DistNode
 from geo import bl2xy, point2segment, point_project, calc_included_angle, calc_dist, point_project_edge
 import matplotlib.pyplot as plt
 from DBConn import oracle_util
+import math
 from time import clock
 import Queue
 from draw_map import draw_edge_list, draw_trace, draw_edge
@@ -91,7 +92,7 @@ class MapInfo:
                     self.map_node[nodeid] = nd
                 if i > 0:
                     edge_length = calc_dist([x, y], [lastx, lasty])
-                    edge = MapEdge(self.map_node[last_nodeid], self.map_node[nodeid], r.direction == "yes",
+                    edge = MapEdge(self.map_node[last_nodeid], self.map_node[nodeid], r.direction == "1",
                                    len(self.map_edge), edge_length, rid)
                     self.map_edge.append(edge)
                 r.add_node(nd)
@@ -162,13 +163,15 @@ class MapMatching(object):
                 x.append(node.point[0])
                 y.append(node.point[1])
             try:
-                speed = road_speed[rid]
-                if speed < 5:
+                speed, tti = road_speed[rid]
+                if tti > 2.2:
                     c = 'maroon'
-                elif 5 < speed < 15:
+                elif 1.9 < tti <= 2.2:
                     c = 'red'
-                elif 15 < speed < 25:
+                elif 1.6 < tti <= 1.9:
                     c = 'gold'
+                elif 1.3 < tti <= 1.6:
+                    c = 'lawngreen'
                 else:
                     c = 'green'
             except KeyError:
@@ -250,11 +253,19 @@ class MapMatching(object):
             angle = calc_included_angle(last_point, point, p0, p1)
             if not edge.oneway and angle < 0:
                 angle = -angle
-            score = w0 * dist + w1 * (1 - angle)
+            score = w0 * dist + w1 * (math.pow(w1, (1 - angle)) - 1)
+            # if cnt == 3 and (edge.edge_index == 171 or edge.edge_index == 223):
+            #     x, y = last_point[0:2]
+            #     plt.plot(x, y, 'ro')
+            #     x, y = point[0:2]
+            #     plt.plot(x, y, 'rs')
+            #     x, y = p0[0:2]
+            #     plt.plot(x, y, 'bo')
+            #     x, y = p1[0:2]
+            #     plt.plot(x, y, 'bs')
+            #     print edge.edge_index, dist, score, angle
             if score < min_score:
                 min_score, sel_edge, min_dist = score, edge, dist
-                # if cnt == 147:
-                #     print edge.edge_index, dist, score, angle
 
         if min_dist > 100:
             return None, None, 0
@@ -295,8 +306,8 @@ class MapMatching(object):
         # 用分块方法做速度更快
         # 实际上kdtree效果也不错，所以就用kdtree求最近节点knn
         candidate_edges = self.get_candidate_first(data, self.kdt, self.X)
-
-        # if cnt == 332:
+        #
+        # if cnt == 3:
         #     draw_edge_list(candidate_edges)
         cur_point, cur_edge, dist = self.get_mod_point(data, candidate_edges, last_point, cnt)
         if dist > 50:
