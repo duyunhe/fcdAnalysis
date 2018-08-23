@@ -164,13 +164,13 @@ class MapMatching(object):
                 y.append(node.point[1])
             try:
                 speed, tti = road_speed[rid]
-                if tti > 2.2:
+                if tti > 8:
                     c = 'maroon'
-                elif 1.9 < tti <= 2.2:
+                elif 6 < tti <= 8:
                     c = 'red'
-                elif 1.6 < tti <= 1.9:
+                elif 4 < tti <= 6:
                     c = 'gold'
-                elif 1.3 < tti <= 1.6:
+                elif 2 < tti <= 4:
                     c = 'lawngreen'
                 else:
                     c = 'green'
@@ -242,19 +242,19 @@ class MapMatching(object):
         :param last_point: last position point
         :return: project_point, sel_edge, score
         """
-        min_score, sel_edge = 1e10, None
+        min_score, sel_edge, sel_angle = 1e10, None, 0
         min_dist = 1e10
 
         for edge in candidate:
             p0, p1 = edge.node0.point, edge.node1.point
-            w0, w1 = 1.0, 10.0
+            w0, w1 = 1.0, 20.0
             # 加权计算分数，考虑夹角的影响
             dist = point2segment(point, p0, p1)
             angle = calc_included_angle(last_point, point, p0, p1)
             if not edge.oneway and angle < 0:
                 angle = -angle
             score = w0 * dist + w1 * (math.pow(w1, (1 - angle)) - 1)
-            # if cnt == 3 and (edge.edge_index == 171 or edge.edge_index == 223):
+            # if cnt == 10:
             #     x, y = last_point[0:2]
             #     plt.plot(x, y, 'ro')
             #     x, y = point[0:2]
@@ -265,9 +265,10 @@ class MapMatching(object):
             #     plt.plot(x, y, 'bs')
             #     print edge.edge_index, dist, score, angle
             if score < min_score:
-                min_score, sel_edge, min_dist = score, edge, dist
+                min_score, sel_edge, min_dist, sel_angle = score, edge, dist, angle
+        # print min_score, sel_edge.way_id, min_dist, sel_angle
 
-        if min_dist > 100:
+        if min_dist > 50:
             return None, None, 0
         if sel_edge is None:
             return None, None, 0
@@ -279,7 +280,7 @@ class MapMatching(object):
             project_point = sel_edge.node0.point
         return project_point, sel_edge, min_score
 
-    def get_mod_point(self, taxi_data, candidate, last_point, cnt=-1):
+    def get_mod_point(self, taxi_data, last_data, candidate, last_point, cnt=-1):
         """
         get best fit point matched with candidate edges
         :param taxi_data: Taxi_Data
@@ -291,14 +292,20 @@ class MapMatching(object):
         point = [taxi_data.px, taxi_data.py]
         if last_point is None:
             # 第一个点
+            try:
+                last_point = [last_data.px, last_data.py]
+            except AttributeError:
+                last_point = None
+        if last_point is None:
             return self._get_mod_point_first(candidate, point)
         else:
             return self._get_mod_point_later(candidate, point, last_point, cnt)
 
-    def PNT_MATCH(self, data, last_point, cnt=-1):
+    def PNT_MATCH(self, data, last_data, last_point, cnt=-1):
         """
         点到路段匹配，仅考虑前一个点
         :param data: 当前的TaxiData，见本模块
+        :param last_data: 上一数据
         :param last_point: 上一次匹配到的点
         :param cnt:  for test
         :return: 本次匹配到的点 cur_point 本次匹配到的边 cur_edge 
@@ -309,8 +316,8 @@ class MapMatching(object):
         #
         # if cnt == 3:
         #     draw_edge_list(candidate_edges)
-        cur_point, cur_edge, dist = self.get_mod_point(data, candidate_edges, last_point, cnt)
-        if dist > 50:
+        cur_point, cur_edge, score = self.get_mod_point(data, last_data, candidate_edges, last_point, cnt)
+        if score > 60:
             cur_point, cur_edge = None, None
         return cur_point, cur_edge
 

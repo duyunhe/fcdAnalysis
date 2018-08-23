@@ -19,6 +19,7 @@ normal_cnt = 0
 def get_speed_list_a1(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     """
     alpha 1.1
+    直接平均，简单，而且平滑
     :param travel_list: 
     :param last_spd: 
     :param cur_spd: 

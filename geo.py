@@ -78,7 +78,7 @@ def calc_included_angle(s0p0, s0p1, s1p0, s1p1):
     # if dt == 0:
     #     return 0
     # ret = np.dot(v0, v1) / dt
-    # print ret,
+    # print ret
 
     ax, ay = s0p1[0] - s0p0[0], s0p1[1] - s0p0[1]
     bx, by = s1p1[0] - s1p0[0], s1p1[1] - s1p0[1]
