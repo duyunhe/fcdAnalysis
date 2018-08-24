@@ -247,13 +247,15 @@ class MapMatching(object):
 
         for edge in candidate:
             p0, p1 = edge.node0.point, edge.node1.point
-            w0, w1 = 1.0, 20.0
+            w0, w1 = 1.0, 10.0
             # 加权计算分数，考虑夹角的影响
             dist = point2segment(point, p0, p1)
             angle = calc_included_angle(last_point, point, p0, p1)
             if not edge.oneway and angle < 0:
                 angle = -angle
-            score = w0 * dist + w1 * (math.pow(w1, (1 - angle)) - 1)
+            if angle < 0.3:
+                continue
+            score = w0 * dist + w1 * (1 - angle)
             # if cnt == 10:
             #     x, y = last_point[0:2]
             #     plt.plot(x, y, 'ro')
@@ -314,8 +316,8 @@ class MapMatching(object):
         # 实际上kdtree效果也不错，所以就用kdtree求最近节点knn
         candidate_edges = self.get_candidate_first(data, self.kdt, self.X)
         #
-        # if cnt == 3:
-        #     draw_edge_list(candidate_edges)
+        if cnt == 2:
+            draw_edge_list(candidate_edges)
         cur_point, cur_edge, score = self.get_mod_point(data, last_data, candidate_edges, last_point, cnt)
         if score > 60:
             cur_point, cur_edge = None, None

@@ -21,15 +21,21 @@ def calc_speed():
             road_speed[rid].append(speed)
         except KeyError:
             road_speed[rid] = [speed]
-    sql = "update tb_road_state set def_speed = :1 where rid = :2"
+
     tp_list = []
+    sql = "delete from tb_road_speed"
+    cursor.execute(sql)
+
     for rid, speed_list in road_speed.iteritems():
         print rid, speed_list
         spd = np.mean(speed_list)
+        sql = "insert into tb_road_speed values(:1, :2)"
         tup = (rid, spd)
+        cursor.execute(sql, tup)
         tp_list.append(tup)
-    cursor.executemany(sql, tp_list)
+    # cursor.executemany(sql, tp_list)
     conn.commit()
+    conn.close()
 
 
 calc_speed()
