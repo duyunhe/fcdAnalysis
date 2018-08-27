@@ -56,15 +56,15 @@ def match2road(veh, data, cnt):
     if last_edge is not None and cur_edge is not None:
         trace, speed_list = estimate_road_speed(last_edge, cur_edge, last_point,
                                                 cur_point, last_data, data, cnt)
-        # for edge, spd in speed_list:
-        #     if edge.way_id == 1000091:
-        #         print 'suc', veh, spd
+        for edge, spd in speed_list:
+            if edge.way_id == 1000045:
+                print 'suc', veh, spd, data.stime
         ret = 0
     elif last_edge is None and cur_edge is not None:
         speed_list = [[cur_edge, data.speed]]
-        # for edge, spd in speed_list:
-        #     if edge.way_id == 1000091:
-        #         print 'first', veh, spd, data.stime, dist
+        for edge, spd in speed_list:
+            if edge.way_id == 1000045:
+                print 'first', veh, spd, data.stime, dist
         ret = 1
 
     point_list[veh], edge_list[veh] = cur_point, cur_edge

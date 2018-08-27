@@ -19,19 +19,6 @@ import os
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
 
-class TaxiData:
-    def __init__(self, px, py, stime, state, speed, car_state, direction):
-        self.px, self.py, self.stime, self.state, self.speed = px, py, stime, state, speed
-        self.stop_index, self.dist, self.car_state, self.direction = 0, 0, car_state, direction
-        self.angle = 0
-
-    def set_index(self, index):
-        self.stop_index = index
-
-    def set_angle(self, angle):
-        self.angle = angle
-
-
 class MapInfo:
     """
     保存地图信息
@@ -165,7 +152,7 @@ class MapMatching(object):
             try:
                 speed, tti = road_speed[rid]
                 if tti > 8:
-                    c = 'maroon'
+                    c = 'm'
                 elif 6 < tti <= 8:
                     c = 'red'
                 elif 4 < tti <= 6:
@@ -177,6 +164,8 @@ class MapMatching(object):
             except KeyError:
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
+            if c == 'm':
+                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
             # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:
@@ -315,9 +304,8 @@ class MapMatching(object):
         # 用分块方法做速度更快
         # 实际上kdtree效果也不错，所以就用kdtree求最近节点knn
         candidate_edges = self.get_candidate_first(data, self.kdt, self.X)
-        #
-        if cnt == 2:
-            draw_edge_list(candidate_edges)
+        # if cnt == 2:
+        #     draw_edge_list(candidate_edges)
         cur_point, cur_edge, score = self.get_mod_point(data, last_data, candidate_edges, last_point, cnt)
         if score > 60:
             cur_point, cur_edge = None, None

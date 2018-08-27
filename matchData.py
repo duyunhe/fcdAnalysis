@@ -8,7 +8,7 @@ from DBConn import oracle_util
 from fcd_processor import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
-from geo import bl2xy, calc_dist
+from geo import bl2xy, calc_dist, tti2index
 import matplotlib.pyplot as plt
 from time import clock
 import numpy as np
@@ -37,16 +37,6 @@ def cmp1(data1, data2):
         return -1
     else:
         return 0
-
-
-def tti2index(tti):
-    if tti > 2.2:
-        c = 10
-    elif tti < 1:
-        c = 0
-    else:
-        c = (tti - 1) / 1.2 * 10
-    return c
 
 
 def get_all_gps_data(conn, begin_time):
@@ -175,8 +165,8 @@ def get_def_speed(conn):
 
 def main():
     conn = oracle_util.get_connection()
-    veh = '浙AT7881'
-    begin_time = datetime.strptime('2018-05-10 11:50:00', '%Y-%m-%d %H:%M:%S')
+    veh = '浙ATB073'
+    begin_time = datetime.strptime('2018-05-10 15:22:00', '%Y-%m-%d %H:%M:%S')
     trace = get_gps_data(conn, begin_time, veh)
     trace = get_all_gps_data(conn, begin_time)
     # print len(trace)
@@ -227,4 +217,4 @@ def main():
     conn.close()
 
 
-main()
+# main()

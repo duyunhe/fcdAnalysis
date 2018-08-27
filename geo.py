@@ -123,6 +123,16 @@ def get_diff(e0, e1):
     return math.fabs(de)
 
 
+def tti2index(tti):
+    if tti > 3.0:
+        c = 10
+    elif tti < 1.2:
+        c = 0
+    else:
+        c = (tti - 1.2) / 1.8 * 10
+    return c
+
+
 def get_guass_proc(dist):
     sig = 20.0
     return 1.0 / (math.sqrt(2.0 * math.pi) * sig) * math.exp(-(dist * dist) / (2.0 * sig * sig))
