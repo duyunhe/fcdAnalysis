@@ -126,11 +126,11 @@ class HQListener(My905Listener):
 
 
 if __name__ == '__main__':
-    # conn1 = stomp.Connection10([('192.168.0.102', 61615)])
-    # conn1.set_listener('', FTListener())
-    # conn1.start()
-    # conn1.connect('admin', 'admin', wait=True)
-    # conn1.subscribe(destination='/topic/position_ft', ack='auto')
+    conn1 = stomp.Connection10([('192.168.0.102', 61615)])
+    conn1.set_listener('', FTListener())
+    conn1.start()
+    conn1.connect('admin', 'admin', wait=True)
+    conn1.subscribe(destination='/topic/position_ft', ack='auto')
 
     conn = stomp.Connection10([('192.168.0.102', 61615)])
     conn.set_listener('', TYListener())
@@ -138,11 +138,11 @@ if __name__ == '__main__':
     conn.connect('admin', 'admin', wait=True)
     conn.subscribe(destination='/topic/position_ty', ack='auto')
 
-    # conn2 = stomp.Connection10([('192.168.0.102', 61615)])
-    # conn2.set_listener('', HQListener())
-    # conn2.start()
-    # conn2.connect('admin', 'admin', wait=True)
-    # conn2.subscribe(destination='/topic/position_hq', ack='auto')
+    conn2 = stomp.Connection10([('192.168.0.102', 61615)])
+    conn2.set_listener('', HQListener())
+    conn2.start()
+    conn2.connect('admin', 'admin', wait=True)
+    conn2.subscribe(destination='/topic/position_hq', ack='auto')
 
     while True:
         time.sleep(1)

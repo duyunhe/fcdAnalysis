@@ -8,7 +8,7 @@ from DBConn import oracle_util
 from fcd_processor import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
-from geo import bl2xy, calc_dist, tti2index
+from geo import bl2xy, calc_dist, get_tti
 import matplotlib.pyplot as plt
 from time import clock
 import numpy as np
@@ -152,7 +152,7 @@ def save_speed(conn, road_speed):
 
 
 def get_def_speed(conn):
-    sql = "select rid, speed from tb_road_speed"
+    sql = "select rid, speed from tb_road_def_speed"
     cursor = conn.cursor()
     cursor.execute(sql)
     def_speed = {}
@@ -202,7 +202,7 @@ def main():
         print rid, S / W, len(sp_list)
         spd = S / W
         tti = def_speed[rid] / spd
-        idx = tti2index(tti)
+        idx = get_tti(tti)
         road_speed[rid] = [S / W, idx]
 
     # save_speed(conn, road_speed)

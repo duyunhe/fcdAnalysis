@@ -123,14 +123,14 @@ def get_diff(e0, e1):
     return math.fabs(de)
 
 
-def tti2index(tti):
-    if tti > 3.0:
-        c = 10
-    elif tti < 1.2:
-        c = 0
+def get_tti(m):
+    if m > 3.0:
+        tti = 10
+    elif m < 1.2:
+        tti = 0
     else:
-        c = (tti - 1.2) / 1.8 * 10
-    return c
+        tti = (m - 1.2) / 1.8 * 10
+    return tti
 
 
 def get_guass_proc(dist):

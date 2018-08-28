@@ -8,10 +8,11 @@
 import json
 import time
 import stomp
-from geo import bl2xy
-from map_matching import MapMatching
-from matchData import TaxiData
+from geo import bl2xy, get_tti
+from DBConn import oracle_util
+from matchData import TaxiData, get_def_speed
 from fcd_processor import match2road
+import logging
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -28,6 +29,35 @@ def bcd2time(bcd_time):
     yy, mm, dd, hh, mi, ss = dig[0:6]
     dt = datetime(year=yy, month=mm, day=dd, hour=hh, minute=mi, second=ss)
     return dt
+
+
+def job():
+    print "update road speed"
+    sql = "delete from tb_road_speed"
+    db = oracle_util.get_connection()
+    def_speed_dict = get_def_speed(db)
+    cursor = db.cursor()
+    cursor.execute(sql)
+    db.commit()
+
+    tup_list = []
+    global road_temp
+    for rid, sp_list in road_temp.iteritems():
+        W, S = 0, 0
+        for sp, w in sp_list:
+            S, W = S + sp * w, W + w
+        print rid, S / W, len(sp_list)
+        def_spd = def_speed_dict[rid]
+        spd = S / W
+        tti = get_tti(def_spd / spd)
+        tup = (rid, spd, len(sp_list), tti)
+        tup_list.append(tup)
+
+    road_temp = {}
+    sql = "insert into tb_road_speed values(:1, :2, :3, :4)"
+    cursor.executemany(sql, tup_list)
+    db.commit()
+    db.close()
 
 
 class FCDListener(object):
@@ -65,13 +95,16 @@ class FCDListener(object):
 
 
 def main():
+    logging.basicConfig()
+    log = logging.getLogger('apscheduler.executors.default')
+    sch = BackgroundScheduler()
+    sch.add_job(job, 'interval', minutes=5)
+    sch.start()
     conn = stomp.Connection10([('192.168.11.88', 61613)])
     conn.set_listener('', FCDListener())
     conn.start()
     conn.connect('admin', 'admin', wait=True)
     conn.subscribe(destination='/queue/fcd_position', ack='auto')
-    sch = BackgroundScheduler()
-    sch.add_job(job, 'interval', minutes=2)
 
     while True:
         time.sleep(1)
