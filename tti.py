@@ -5,6 +5,7 @@
 # @File    : tti.py
 
 from DBConn import oracle_util
+import math
 import numpy as np
 
 
@@ -38,4 +39,18 @@ def calc_speed():
     conn.close()
 
 
-calc_speed()
+def get_tti(radio):
+    """
+    :param radio: 当前速度与自由流下速度比率
+    :return: TTI(travel time index)
+    """
+    max_radio = 10
+    min_radio = 1.2
+    if radio > max_radio:
+        tti = 10
+    elif radio < min_radio:
+        tti = 0
+    else:
+        r1, r0, r = math.log(max_radio), math.log(min_radio), math.log(radio)
+        tti = (r - r0) / (r1 - r0) * 10
+    return tti

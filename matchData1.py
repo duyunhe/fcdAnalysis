@@ -8,11 +8,14 @@ from DBConn import oracle_util
 from fcd_processor import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
-from geo import bl2xy, calc_dist, get_tti
+from geo import bl2xy, calc_dist
+from tti import get_tti
 import matplotlib.pyplot as plt
 from time import clock
 import numpy as np
+import json
 import os
+import redis
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
 
@@ -41,15 +44,16 @@ def cmp1(data1, data2):
 
 def get_all_gps_data(conn, begin_time):
     bt = clock()
-    str_bt = begin_time.strftime('%Y-%m-%d 00:00:00')
-    # end_time = begin_time + timedelta(minutes=5)
-    str_et = begin_time.strftime('%Y-%m-%d 06:00:00')
+    str_bt = begin_time.strftime('%Y-%m-%d %H:%M:%S')
+    end_time = begin_time + timedelta(minutes=5)
+    str_et = end_time.strftime('%Y-%m-%d %H:%M:%S')
     sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
           "TB_GPS_1805 t where speed_time >= to_date('{0}', 'yyyy-mm-dd hh24:mi:ss') " \
           "and speed_time < to_date('{1}', 'yyyy-MM-dd hh24:mi:ss') order by speed_time".format(str_bt, str_et)
     cursor = conn.cursor()
     cursor.execute(sql)
-    trace = []
+    veh_trace = {}
+    static_num = {}
     for item in cursor.fetchall():
         lng, lat = map(float, item[0:2])
         if 119 < lng < 121 and 29 < lat < 31:
@@ -60,11 +64,86 @@ def get_all_gps_data(conn, begin_time):
             car_state = int(item[5])
             ort = float(item[6])
             veh = item[7][-6:]
+            # if veh != 'ATE638':
+            #     continue
             taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
-            trace.append(taxi_data)
+            try:
+                veh_trace[veh].append(taxi_data)
+            except KeyError:
+                veh_trace[veh] = [taxi_data]
+            try:
+                static_num[veh] += 1
+            except KeyError:
+                static_num[veh] = 1
     et = clock()
-    print "get all gps data", et - bt
-    return trace
+    new_dict = {}
+    for veh, trace in veh_trace.iteritems():
+        trace.sort(cmp1)
+        new_trace = []
+        last_data = None
+        for data in trace:
+            esti = True
+            if last_data is not None:
+                dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
+                dt = (data.stime - last_data.stime).total_seconds()
+                # 过滤异常
+                if dt <= 10 or dt > 120:
+                    esti = False
+                elif dist > 100 / 3.6 * dt:  # 距离阈值
+                    esti = False
+                elif data.speed == last_data.speed and data.direction == last_data.direction:  # 非精确
+                    esti = False
+                elif dist < 15:             # GPS的误差在15米，不准确
+                    esti = False
+            last_data = data
+            if esti:
+                new_trace.append(data)
+        new_dict[veh] = new_trace
+    # print "get all gps data {0}".format(len(trace)), et - bt
+    # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
+    return new_dict
+
+
+def get_gps_data_from_redis():
+    bt = clock()
+    conn = redis.Redis(host="192.168.11.229", port=6300, db=1)
+    keys = conn.keys()
+    m_res = conn.mget(keys)
+    et = clock()
+    veh_trace = {}
+    static_num = {}
+    for data in m_res:
+        try:
+            js_data = json.loads(data)
+            lng, lat = js_data['longi'], js_data['lati']
+            veh, str_time = js_data['isu'], js_data['speed_time']
+            speed = js_data['speed']
+            stime = datetime.strptime(str_time, "%Y-%m-%d %H:%M:%S")
+            state = 0
+            car_state = 0
+            ort = js_data['ort']
+            if 119 < lng < 121 and 29 < lat < 31:
+                px, py = bl2xy(lat, lng)
+                taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
+                try:
+                    veh_trace[veh].append(taxi_data)
+                except KeyError:
+                    veh_trace[veh] = [taxi_data]
+                try:
+                    static_num[veh] += 1
+                except KeyError:
+                    static_num[veh] = 1
+        except TypeError:
+            pass
+    print "redis cost ", et - bt
+    new_trace = {}
+    for veh, trace in veh_trace.iteritems():
+        trace.sort(cmp1)
+        new_trace[veh] = trace
+    # print "get all gps data {0}".format(len(veh_trace))
+    # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
+    return new_trace
+
 
 
 def get_gps_data(conn, begin_time, veh):
@@ -134,19 +213,25 @@ def draw_trace(trace):
 
 
 def draw_points(data_list):
+    if len(data_list) == 0:
+        return
     x, y = zip(*data_list)
     plt.plot(x, y, 'b+')
     for i in range(len(data_list)):
         x, y = data_list[i][0:2]
 
 
-def save_speed(conn, road_speed):
-    sql = "update tb_road_state set def_speed = :1 where rid = :2"
-    tup_list = []
-    for rid, speed in road_speed.iteritems():
-        tup = (speed, rid)
-        tup_list.append(tup)
+def save_road_speed(conn, road_speed):
+    sql = "delete from tb_road_speed"
     cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    sql = "insert into tb_road_speed values(:1, :2, :3, :4)"
+    tup_list = []
+    for rid, speed_list in road_speed.iteritems():
+        speed, num, tti = speed_list[:]
+        tup = (rid, speed, num, tti)
+        tup_list.append(tup)
     cursor.executemany(sql, tup_list)
     conn.commit()
 
@@ -163,80 +248,64 @@ def get_def_speed(conn):
     return def_speed
 
 
-def insert_def_speed(conn, speed_dict):
-    cursor = conn.cursor()
-    sql = "delete from tb_road_def_speed"
-    cursor.execute(sql)
-    conn.commit()
-    sql = "insert into tb_road_def_speed values(:1, :2)"
-    tup_list = []
-    for rid, speed in speed_dict.iteritems():
-        tup = (rid, speed[0])
-        tup_list.append(tup)
-    cursor.executemany(sql, tup_list)
-    conn.commit()
-
-
 def main():
     conn = oracle_util.get_connection()
-    veh = '浙AT7881'
-    begin_time = datetime.strptime('2018-05-10 11:50:00', '%Y-%m-%d %H:%M:%S')
+    begin_time = datetime.strptime('2018-05-10 18:00:00', '%Y-%m-%d %H:%M:%S')
     # trace = get_gps_data(conn, begin_time, veh)
-    trace = get_all_gps_data(conn, begin_time)
+    # trace_dict = get_all_gps_data(conn, begin_time)
+    trace_dict = get_gps_data_from_redis()
     # print len(trace)
-
-    mod_list = []
+    # mod_list = []
     bt = clock()
     road_temp = {}
     n0, n1, n2 = 0, 0, 0
-    for i, data in enumerate(trace):
-        mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
-        for edge, spd in speed_list:
-            try:
-                road_temp[edge.way_id].append(spd)
-            except KeyError:
-                road_temp[edge.way_id] = [spd]
-        # if ret == 0:
-        #     n0 += 1
-        # elif ret == 1:
-        #     n1 += 1
-        # elif ret == -1:
-        #     n2 += 1
-        # speed_pool.extend(speed_list)
-        if mod_point is not None:
-            mod_list.append(mod_point)
-
+    dtrace = []
+    for veh, trace in trace_dict.iteritems():
+        # if veh != 'ATE638':
+        #     continue
+        dtrace = trace
+        for i, data in enumerate(trace):
+            mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
+            for edge, spd in speed_list:
+                try:
+                    road_temp[edge.way_id].append([spd, edge.edge_length])
+                except KeyError:
+                    road_temp[edge.way_id] = [[spd, edge.edge_length]]
+            if ret == 0:
+                n0 += 1
+            elif ret == 1:
+                n1 += 1
+            elif ret == -1:
+                n2 += 1
+            # speed_pool.extend(speed_list)
+            # if mod_point is not None:
+            #     mod_list.append(mod_point)
+    print n0, n1, n2
     def_speed = get_def_speed(conn)
     road_speed = {}
 
     for rid, sp_list in road_temp.iteritems():
-        a = np.array((sp_list))
-        spd = np.percentile(a, 85)  # 85%分位数
-        tti = def_speed[rid] / spd
-        idx = get_tti(tti)
-        road_speed[rid] = [spd, idx]
-    insert_def_speed(conn, road_speed)
-    #
-    # for rid, sp_list in road_temp.iteritems():
-    #     W, S = 0, 0
-    #     for sp, w in sp_list:
-    #         S, W = S + sp * w, W + w
-    #     print rid, S / W, len(sp_list)
-    #     spd = S / W
-    #     tti = def_speed[rid] / spd
-    #     idx = get_tti(tti)
-    #     road_speed[rid] = [S / W, idx]
-    #
-    # save_speed(conn, road_speed)
-    # print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+        W, S = 0, 0
+        for sp, w in sp_list:
+            S, W = S + sp * w, W + w
+
+        spd = S / W
+        div = def_speed[rid] / spd
+        print rid, S / W, len(sp_list), div
+        idx = get_tti(div)
+        road_speed[rid] = [spd, len(sp_list), idx]
+
+    save_road_speed(conn, road_speed)
+    print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
 
     et = clock()
-    print "main process {0}".format(len(trace)), et - bt
-    # draw_trace(trace)
+    print "main process {0}".format(len(trace_dict)), et - bt
+    # draw_trace(dtrace)
     # draw_points(mod_list)
-    # draw_map(road_speed)
-    # plt.show()
+    draw_map(road_speed)
+    plt.show()
     conn.close()
 
 
 main()
+# get_gps_data_from_redis()

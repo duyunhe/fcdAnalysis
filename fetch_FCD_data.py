@@ -8,7 +8,8 @@
 import json
 import time
 import stomp
-from geo import bl2xy, get_tti
+from geo import bl2xy
+from tti import get_tti
 from DBConn import oracle_util
 from matchData import TaxiData, get_def_speed
 from fcd_processor import match2road
@@ -18,6 +19,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 
 road_temp = {}
+data_cnt = 0
 
 
 def bcd2time(bcd_time):
@@ -32,7 +34,10 @@ def bcd2time(bcd_time):
 
 
 def job():
+    global data_cnt
     print "update road speed"
+    print "receive data {0}".format(data_cnt)
+    data_cnt = 0
     sql = "delete from tb_road_speed"
     db = oracle_util.get_connection()
     def_speed_dict = get_def_speed(db)
@@ -84,10 +89,10 @@ class FCDListener(object):
             except KeyError:
                 road_temp[edge.way_id] = [[spd, edge.edge_length]]
 
-        self.cnt += 1
-        if self.cnt == 1000:
+        global data_cnt
+        data_cnt += 1
+        if data_cnt % 1000 == 0:
             self.on_cnt(time.clock() - self.ticker)
-            self.cnt = 0
             self.ticker = time.clock()
 
     def on_cnt(self, x):

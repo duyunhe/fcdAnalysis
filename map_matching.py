@@ -140,7 +140,8 @@ class MapMatching(object):
     def plot_map(self, road_speed):
         """
         根据路况绘制地图
-        :param road_speed: {rid:speed}
+        :param road_speed: {rid:speed_list}
+        speed_list :[spd, sample_number, tti]
         :return: 
         """
         for rid, road in self.mi.map_road.iteritems():
@@ -150,22 +151,22 @@ class MapMatching(object):
                 x.append(node.point[0])
                 y.append(node.point[1])
             try:
-                speed, tti = road_speed[rid]
+                speed, _, tti = road_speed[rid]
                 if tti > 8:
                     c = 'm'
                 elif 6 < tti <= 8:
                     c = 'red'
                 elif 4 < tti <= 6:
-                    c = 'gold'
+                    c = 'darkorange'
                 elif 2 < tti <= 4:
-                    c = 'lawngreen'
+                    c = 'green'
                 else:
                     c = 'green'
             except KeyError:
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
-            if c == 'm':
-                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
+            if c == 'm' or c == 'red':
+                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid % 1000))
             # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:

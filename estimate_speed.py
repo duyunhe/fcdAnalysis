@@ -44,7 +44,7 @@ def get_speed_list_a1(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     return seg_speed_list
 
 
-def get_speed_list(travel_list, last_spd, cur_spd, ave_spd, itv_time):
+def get_speed_list_a0(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     """
     alpha 1.0
     返回各个路段上估算的速度列表

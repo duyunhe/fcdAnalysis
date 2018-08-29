@@ -123,16 +123,6 @@ def get_diff(e0, e1):
     return math.fabs(de)
 
 
-def get_tti(m):
-    if m > 3.0:
-        tti = 10
-    elif m < 1.2:
-        tti = 0
-    else:
-        tti = (m - 1.2) / 1.8 * 10
-    return tti
-
-
 def get_guass_proc(dist):
     sig = 20.0
     return 1.0 / (math.sqrt(2.0 * math.pi) * sig) * math.exp(-(dist * dist) / (2.0 * sig * sig))
@@ -197,3 +187,27 @@ def draw_raw(traj, ax):
         xlist.append(point.px)
         ylist.append(point.py)
     ax.plot(xlist, ylist, marker='o', linestyle='--', color='k', lw=1)
+
+
+
+def transformlat(lng, lat):
+    ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * math.sqrt(math.fabs(lng))
+    ret += (20.0 * math.sin(6.0 * lng * math.pi) + 20.0 *
+            math.sin(2.0 * lng * math.pi)) * 2.0 / 3.0
+    ret += (20.0 * math.sin(lat * math.pi) + 40.0 *
+            math.sin(lat / 3.0 * math.pi)) * 2.0 / 3.0
+    ret += (160.0 * math.sin(lat / 12.0 * math.pi) + 320 *
+            math.sin(lat * math.pi / 30.0)) * 2.0 / 3.0
+    return ret
+
+
+def transformlng(lng, lat):
+    ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + \
+        0.1 * lng * lat + 0.1 * math.sqrt(math.fabs(lng))
+    ret += (20.0 * math.sin(6.0 * lng * math.pi) + 20.0 *
+            math.sin(2.0 * lng * math.pi)) * 2.0 / 3.0
+    ret += (20.0 * math.sin(lng * math.pi) + 40.0 *
+            math.sin(lng / 3.0 * math.pi)) * 2.0 / 3.0
+    ret += (150.0 * math.sin(lng / 12.0 * math.pi) + 300.0 *
+            math.sin(lng / 30.0 * math.pi)) * 2.0 / 3.0
+    return ret
