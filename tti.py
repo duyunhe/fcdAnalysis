@@ -7,6 +7,7 @@
 from DBConn import oracle_util
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def calc_speed():
@@ -41,7 +42,7 @@ def calc_speed():
 
 def get_tti(radio):
     """
-    :param radio: 当前速度与自由流下速度比率
+    :param radio: 当前速度与自由流下速度比率倒数
     :return: TTI(travel time index)
     """
     max_radio = 10
@@ -54,3 +55,10 @@ def get_tti(radio):
         r1, r0, r = math.log(max_radio), math.log(min_radio), math.log(radio)
         tti = (r - r0) / (r1 - r0) * 10
     return tti
+
+
+def draw():
+    x = np.arange(1, 70, 0.1)
+    y = [get_tti(50 / i) for i in x]
+    plt.plot(x, y)
+    plt.show()

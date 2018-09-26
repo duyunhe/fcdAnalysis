@@ -169,17 +169,17 @@ class My905Listener(object):
 
 class FTListener(My905Listener):
     def on_cnt(self, x):
-        print "ft 1000 cost ", x
+        print "ft gateway count 1000 cost ", x, datetime.now()
 
 
 class TYListener(My905Listener):
     def on_cnt(self, x):
-        print "ty 1000 cost ", x
+        print "ty gateway count 1000 cost ", x, datetime.now()
 
 
 class HQListener(My905Listener):
     def on_cnt(self, x):
-        print "hq 1000 cost ", x
+        print "hq gateway count 1000 cost ", x, datetime.now()
 
 
 if __name__ == '__main__':

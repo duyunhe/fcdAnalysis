@@ -16,6 +16,8 @@ import numpy as np
 import json
 import os
 import redis
+from apscheduler.schedulers.blocking import BlockingScheduler
+import logging
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
 
@@ -40,6 +42,18 @@ def cmp1(data1, data2):
         return -1
     else:
         return 0
+
+
+def get_history_speed(conn, speed_time):
+    sql = "select * from tb_history_speed where data_hour = {0} and data_weekday = {1}".format(
+        speed_time.hour, speed_time.weekday()
+    )
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    speed = 0.0
+    for item in cursor:
+        speed = float(item[1])
+    return speed
 
 
 def get_all_gps_data(conn, begin_time):
@@ -108,42 +122,43 @@ def get_gps_data_from_redis():
     bt = clock()
     conn = redis.Redis(host="192.168.11.229", port=6300, db=1)
     keys = conn.keys()
-    m_res = conn.mget(keys)
-    et = clock()
-    veh_trace = {}
-    static_num = {}
-    for data in m_res:
-        try:
-            js_data = json.loads(data)
-            lng, lat = js_data['longi'], js_data['lati']
-            veh, str_time = js_data['isu'], js_data['speed_time']
-            speed = js_data['speed']
-            stime = datetime.strptime(str_time, "%Y-%m-%d %H:%M:%S")
-            state = 0
-            car_state = 0
-            ort = js_data['ort']
-            if 119 < lng < 121 and 29 < lat < 31:
-                px, py = bl2xy(lat, lng)
-                taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
-                try:
-                    veh_trace[veh].append(taxi_data)
-                except KeyError:
-                    veh_trace[veh] = [taxi_data]
-                try:
-                    static_num[veh] += 1
-                except KeyError:
-                    static_num[veh] = 1
-        except TypeError:
-            pass
-    print "redis cost ", et - bt
     new_trace = {}
-    for veh, trace in veh_trace.iteritems():
-        trace.sort(cmp1)
-        new_trace[veh] = trace
+    if len(keys) != 0:
+        m_res = conn.mget(keys)
+        et = clock()
+        veh_trace = {}
+        static_num = {}
+        for data in m_res:
+            try:
+                js_data = json.loads(data)
+                lng, lat = js_data['longi'], js_data['lati']
+                veh, str_time = js_data['isu'], js_data['speed_time']
+                speed = js_data['speed']
+                stime = datetime.strptime(str_time, "%Y-%m-%d %H:%M:%S")
+                state = 0
+                car_state = 0
+                ort = js_data['ort']
+                if 119 < lng < 121 and 29 < lat < 31:
+                    px, py = bl2xy(lat, lng)
+                    taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
+                    try:
+                        veh_trace[veh].append(taxi_data)
+                    except KeyError:
+                        veh_trace[veh] = [taxi_data]
+                    try:
+                        static_num[veh] += 1
+                    except KeyError:
+                        static_num[veh] = 1
+            except TypeError:
+                pass
+        print "redis cost ", et - bt
+
+        for veh, trace in veh_trace.iteritems():
+            trace.sort(cmp1)
+            new_trace[veh] = trace
     # print "get all gps data {0}".format(len(veh_trace))
     # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
     return new_trace
-
 
 
 def get_gps_data(conn, begin_time, veh):
@@ -222,15 +237,19 @@ def draw_points(data_list):
 
 
 def save_road_speed(conn, road_speed):
+    now = datetime.now()
     sql = "delete from tb_road_speed"
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()
-    sql = "insert into tb_road_speed values(:1, :2, :3, :4)"
+    sql = "insert into tb_road_speed values(:1, :2, :3, :4, to_date(:5, 'yyyy-mm-dd hh24:mi:ss'))"
     tup_list = []
     for rid, speed_list in road_speed.iteritems():
         speed, num, tti = speed_list[:]
-        tup = (rid, speed, num, tti)
+        if speed == float('nan') or speed == float('inf'):
+            continue
+        DT = now.strftime("%Y-%m-%d %H:%M:%S")
+        tup = (rid, float('%.2f' % speed), num, tti, DT)
         tup_list.append(tup)
     cursor.executemany(sql, tup_list)
     conn.commit()
@@ -246,6 +265,22 @@ def get_def_speed(conn):
         spd = float(item[1])
         def_speed[rid] = spd
     return def_speed
+
+
+def save_roadspeed_bak(conn, speed_dict):
+    now = datetime.now()
+    cursor = conn.cursor()
+    sql = "insert into tb_road_speed_bak values(:1, :2, :3, :4, to_date(:5, 'yyyy-mm-dd hh24:mi:ss'))"
+    tup_list = []
+    for rid, speed_list in speed_dict.iteritems():
+        speed, num, tti = speed_list[:]
+        if speed == float('nan') or speed == float('inf'):
+            continue
+        DT = now.strftime("%Y-%m-%d %H:%M:%S")
+        tup = (rid, speed, num, tti, DT)
+        tup_list.append(tup)
+    cursor.executemany(sql, tup_list)
+    conn.commit()
 
 
 def main():
@@ -284,28 +319,41 @@ def main():
     def_speed = get_def_speed(conn)
     road_speed = {}
 
+    his_speed = get_history_speed(conn, datetime.now())
     for rid, sp_list in road_temp.iteritems():
         W, S = 0, 0
         for sp, w in sp_list:
             S, W = S + sp * w, W + w
-
         spd = S / W
-        div = def_speed[rid] / spd
-        print rid, S / W, len(sp_list), div
-        idx = get_tti(div)
-        road_speed[rid] = [spd, len(sp_list), idx]
+        n_sample = len(sp_list)
+        if n_sample < 15:
+            spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
+        radio = def_speed[rid] / spd
+        idx = get_tti(radio)
+        # print rid, S / W, len(sp_list), radio, idx
 
+        road_speed[rid] = [spd, n_sample, idx]
     save_road_speed(conn, road_speed)
+    # save_roadspeed_bak(conn, road_speed)
     print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
 
     et = clock()
     print "main process {0}".format(len(trace_dict)), et - bt
     # draw_trace(dtrace)
     # draw_points(mod_list)
-    draw_map(road_speed)
-    plt.show()
+    # draw_map(road_speed)
+    # plt.show()
     conn.close()
 
 
-main()
 # get_gps_data_from_redis()
+if __name__ == '__main__':
+    logging.basicConfig()
+    scheduler = BlockingScheduler()
+    # scheduler.add_job(tick, 'interval', days=1)
+    scheduler.add_job(main, 'interval', minutes=5)
+    main()
+    try:
+        scheduler.start()
+    except SystemExit:
+        pass

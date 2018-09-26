@@ -8,7 +8,7 @@ from DBConn import oracle_util
 from fcd_processor import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
-from geo import bl2xy, calc_dist, get_tti
+from geo import bl2xy, calc_dist
 import matplotlib.pyplot as plt
 from time import clock
 import numpy as np
@@ -41,9 +41,10 @@ def cmp1(data1, data2):
 
 def get_all_gps_data(conn, begin_time):
     bt = clock()
-    str_bt = begin_time.strftime('%Y-%m-%d 00:00:00')
-    # end_time = begin_time + timedelta(minutes=5)
-    str_et = begin_time.strftime('%Y-%m-%d 06:00:00')
+    str_bt = begin_time.strftime('%Y-%m-%d %H:%M:%S')
+    end_time = begin_time + timedelta(hours=1)
+    str_et = end_time.strftime('%Y-%m-%d %H:%M:%S')
+    print str_bt, str_et
     sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
           "TB_GPS_1805 t where speed_time >= to_date('{0}', 'yyyy-mm-dd hh24:mi:ss') " \
           "and speed_time < to_date('{1}', 'yyyy-MM-dd hh24:mi:ss') order by speed_time".format(str_bt, str_et)
@@ -64,7 +65,7 @@ def get_all_gps_data(conn, begin_time):
             trace.append(taxi_data)
     et = clock()
     print "get all gps data", et - bt
-    return trace
+    return trace, end_time
 
 
 def get_gps_data(conn, begin_time, veh):
@@ -177,61 +178,94 @@ def insert_def_speed(conn, speed_dict):
     conn.commit()
 
 
+def save_road_speed_pre(conn, road_speed, sta, end, wk):
+    sql = "insert into tb_road_speed_pre values(:1,:2,to_date(:3, 'yyyy-mm-dd hh24:mi:ss')," \
+          "to_date(:4, 'yyyy-mm-dd hh24:mi:ss'),:5)"
+    tup_list = []
+    nsta = sta.strftime("%Y-%m-%d %H:%M:%S")
+    nend = end.strftime("%Y-%m-%d %H:%M:%S")
+    for rid, speed in road_speed.iteritems():
+        if speed[0] == float('nan') or speed[0] == float('inf'):
+            continue
+        sp = float('%.2f' % speed[0])
+        tup = (rid, sp, nsta, nend, wk)
+        # print tup
+        tup_list.append(tup)
+    print len(tup_list)
+    cursor = conn.cursor()
+    cursor.executemany(sql, tup_list)
+    conn.commit()
+
+
+def get_week_day(date):
+  week_day_dict = {
+    0 : '星期一',
+    1 : '星期二',
+    2 : '星期三',
+    3 : '星期四',
+    4 : '星期五',
+    5 : '星期六',
+    6 : '星期天',
+  }
+  day = date.weekday()
+  return week_day_dict[day]
+
+
 def main():
     conn = oracle_util.get_connection()
     veh = '浙AT7881'
-    begin_time = datetime.strptime('2018-05-10 11:50:00', '%Y-%m-%d %H:%M:%S')
-    # trace = get_gps_data(conn, begin_time, veh)
-    trace = get_all_gps_data(conn, begin_time)
-    # print len(trace)
+    for rq in range(2, 32):
+        begin_time = datetime.strptime('2018-05-{0} 00:00:00'.format(rq), '%Y-%m-%d %H:%M:%S')
+        week_day = get_week_day(begin_time)
+        for st in range(0, 24):
+            # trace = get_gps_data(conn, begin_time, veh)
+            trace, new_begin = get_all_gps_data(conn, begin_time)
+            print len(trace)
+            # print len(trace)
 
-    mod_list = []
-    bt = clock()
-    road_temp = {}
-    n0, n1, n2 = 0, 0, 0
-    for i, data in enumerate(trace):
-        mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
-        for edge, spd in speed_list:
-            try:
-                road_temp[edge.way_id].append(spd)
-            except KeyError:
-                road_temp[edge.way_id] = [spd]
-        # if ret == 0:
-        #     n0 += 1
-        # elif ret == 1:
-        #     n1 += 1
-        # elif ret == -1:
-        #     n2 += 1
-        # speed_pool.extend(speed_list)
-        if mod_point is not None:
-            mod_list.append(mod_point)
+            mod_list = []
+            bt = clock()
+            road_temp = {}
+            n0, n1, n2 = 0, 0, 0
+            for i, data in enumerate(trace):
+                mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
+                for edge, spd in speed_list:
+                    try:
+                        road_temp[edge.way_id].append([spd, edge.edge_length])
+                    except KeyError:
+                        road_temp[edge.way_id] = [[spd, edge.edge_length]]
+                # if ret == 0:
+                #     n0 += 1
+                # elif ret == 1:
+                #     n1 += 1
+                # elif ret == -1:
+                #     n2 += 1
+                # speed_pool.extend(speed_list)
+                if mod_point is not None:
+                    mod_list.append(mod_point)
 
-    def_speed = get_def_speed(conn)
-    road_speed = {}
+            # def_speed = get_def_speed(conn)
+            road_speed = {}
 
-    for rid, sp_list in road_temp.iteritems():
-        a = np.array((sp_list))
-        spd = np.percentile(a, 85)  # 85%分位数
-        tti = def_speed[rid] / spd
-        idx = get_tti(tti)
-        road_speed[rid] = [spd, idx]
-    insert_def_speed(conn, road_speed)
-    #
-    # for rid, sp_list in road_temp.iteritems():
-    #     W, S = 0, 0
-    #     for sp, w in sp_list:
-    #         S, W = S + sp * w, W + w
-    #     print rid, S / W, len(sp_list)
-    #     spd = S / W
-    #     tti = def_speed[rid] / spd
-    #     idx = get_tti(tti)
-    #     road_speed[rid] = [S / W, idx]
-    #
-    # save_speed(conn, road_speed)
-    # print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+            for rid, sp_list in road_temp.iteritems():
+                W, S = 0, 0
+                for sp, w in sp_list:
+                    S, W = S + sp * w, W + w
+                # if rid == 1000009:
+                #     print sp_list
+                #     print 't'
+                # print rid, S / W, len(sp_list)
+                # spd = S / W
+                # tti = def_speed[rid] / spd
+                # idx = get_tti(tti)
+                road_speed[rid] = [S / W]
+            save_road_speed_pre(conn, road_speed, begin_time, new_begin, week_day)
+            # save_speed(conn, road_speed)
+            # print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
 
-    et = clock()
-    print "main process {0}".format(len(trace)), et - bt
+            et = clock()
+            print "main process {0}".format(len(trace)), et - bt
+            begin_time = new_begin
     # draw_trace(trace)
     # draw_points(mod_list)
     # draw_map(road_speed)
