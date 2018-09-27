@@ -38,7 +38,8 @@ class MapInfo:
     def load_map(self):
         conn = oracle_util.get_connection()
 
-        sql = "select * from tb_road_state"
+        sql = "select * from tb_road_state where direction = 0"
+        # 单行线不予录入
         cursor = conn.cursor()
         cursor.execute(sql)
         for item in cursor:
@@ -49,7 +50,8 @@ class MapInfo:
 
         map_temp_node = {}  # 维护地图节点
         road_point = {}
-        sql = "select * from tb_road_point order by rid, seq"
+        sql = "select rp.* from tb_road_point rp, tb_road_state" \
+              " rs where rp.rid = rs.rid and rs.direction = 0 order by rp.rid, rp.seq "
         cursor.execute(sql)
         for item in cursor:
             rid = item[0]

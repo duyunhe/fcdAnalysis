@@ -5,6 +5,7 @@
 # @File    : matchData.py
 
 from DBConn import oracle_util
+import cx_Oracle
 from fcd_processor import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
@@ -56,16 +57,17 @@ def get_history_speed(conn, speed_time):
     return speed
 
 
-def get_all_gps_data(conn, begin_time):
+def get_all_gps_data():
+    end_time = datetime.now()
+    conn = cx_Oracle.connect('hzgps_taxi/hzgps_taxi@192.168.0.113:1521/orcl')
     bt = clock()
-    str_bt = begin_time.strftime('%Y-%m-%d %H:%M:%S')
-    end_time = begin_time + timedelta(minutes=5)
-    str_et = end_time.strftime('%Y-%m-%d %H:%M:%S')
+    begin_time = end_time + timedelta(minutes=-5)
     sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
-          "TB_GPS_1805 t where speed_time >= to_date('{0}', 'yyyy-mm-dd hh24:mi:ss') " \
-          "and speed_time < to_date('{1}', 'yyyy-MM-dd hh24:mi:ss') order by speed_time".format(str_bt, str_et)
+          "TB_GPS_1809 t where speed_time >= :1 " \
+          "and speed_time < :2 order by speed_time"
+    tup = (begin_time, end_time)
     cursor = conn.cursor()
-    cursor.execute(sql)
+    cursor.execute(sql, tup)
     veh_trace = {}
     static_num = {}
     for item in cursor.fetchall():
@@ -113,8 +115,10 @@ def get_all_gps_data(conn, begin_time):
             if esti:
                 new_trace.append(data)
         new_dict[veh] = new_trace
-    # print "get all gps data {0}".format(len(trace)), et - bt
+    print "get all gps data {0}".format(len(trace)), et - bt
     # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
+    cursor.close()
+    conn.close()
     return new_dict
 
 
@@ -237,19 +241,18 @@ def draw_points(data_list):
 
 
 def save_road_speed(conn, road_speed):
-    now = datetime.now()
     sql = "delete from tb_road_speed"
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()
-    sql = "insert into tb_road_speed values(:1, :2, :3, :4, to_date(:5, 'yyyy-mm-dd hh24:mi:ss'))"
+    sql = "insert into tb_road_speed values(:1, :2, :3, :4, :5)"
     tup_list = []
     for rid, speed_list in road_speed.iteritems():
         speed, num, tti = speed_list[:]
         if speed == float('nan') or speed == float('inf'):
             continue
-        DT = now.strftime("%Y-%m-%d %H:%M:%S")
-        tup = (rid, float('%.2f' % speed), num, tti, DT)
+        dt = datetime.now()
+        tup = (rid, float('%.2f' % speed), num, tti, dt)
         tup_list.append(tup)
     cursor.executemany(sql, tup_list)
     conn.commit()
@@ -284,11 +287,10 @@ def save_roadspeed_bak(conn, speed_dict):
 
 
 def main():
+    trace_dict = get_all_gps_data()
     conn = oracle_util.get_connection()
-    begin_time = datetime.strptime('2018-05-10 18:00:00', '%Y-%m-%d %H:%M:%S')
     # trace = get_gps_data(conn, begin_time, veh)
-    # trace_dict = get_all_gps_data(conn, begin_time)
-    trace_dict = get_gps_data_from_redis()
+    # trace_dict = get_gps_data_from_redis()
     # print len(trace)
     # mod_list = []
     bt = clock()
@@ -326,8 +328,8 @@ def main():
             S, W = S + sp * w, W + w
         spd = S / W
         n_sample = len(sp_list)
-        if n_sample < 15:
-            spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
+        # if n_sample < 15:
+        #     spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
         radio = def_speed[rid] / spd
         idx = get_tti(radio)
         # print rid, S / W, len(sp_list), radio, idx
