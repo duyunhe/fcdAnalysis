@@ -43,11 +43,12 @@ def calc_speed():
 def get_tti_v2(speed, def_speed):
     """
     storm高速公路实时交通指数评估方法中的tti实现
-	划分为五档
-	畅通 大于自由流速度的0.7倍
-	基本畅通 在0.5到0.7之间
-	轻度拥堵 在0.4到0.5之间
-	中度拥堵 在0.3到0.4之间
+    划分为五档
+    畅通 大于自由流速度的0.7倍
+    基本畅通 在0.5到0.7之间
+    轻度拥堵 在0.4到0.5之间
+    中度拥堵 在0.3到0.4之间
+    严重拥堵 在0到0.3之间
     :param speed: 路段实际速度
     :param def_speed: 路段期望速度
     :return: 
@@ -56,9 +57,11 @@ def get_tti_v2(speed, def_speed):
     radio = speed / def_speed
     if radio > 1.0:
         return 0.0
+    if radio <= 0.0:
+        return 10.0
     for i, v in enumerate(v_list):
-        if radio >
-            tti = (i - 1) * 2 + (radio - v_list[i - 1]) / (v_list[i - 1] - v_list[i])
+        if v_list[i + 1] < radio <= v_list[i]:
+            tti = (i + 1) * 2 - (radio - v_list[i + 1]) / (v_list[i] - v_list[i + 1]) * 2
             return tti
 
 
@@ -107,6 +110,6 @@ def draw():
     plt.show()
 
 
-get_tti_v2(0.3, 1)
+get_tti_v2(0.30, 1)
 draw()
 
