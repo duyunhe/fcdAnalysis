@@ -23,13 +23,13 @@ def match2road(veh, data, cnt):
     """
     try:
         last_data, last_edge, last_point = data_list[veh], edge_list[veh], point_list[veh]
-        dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
+        # dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
     except KeyError:
         last_data, last_edge, last_point, dist = None, None, None, None
 
     # if veh == 'AT3006':
     #     print "data", cnt, data.speed, data.stime, dist
-    cur_point, cur_edge = mm.PNT_MATCH(data, last_data, last_point, cnt)
+    cur_point, cur_edge = mm.PNT_MATCH(data, last_data, cnt)
     # print "process {0}".format(cnt)
     speed_list = []
     ret = -1
@@ -57,14 +57,14 @@ def match2road(veh, data, cnt):
         trace, speed_list = estimate_road_speed(last_edge, cur_edge, last_point,
                                                 cur_point, last_data, data, cnt)
         # for edge, spd in speed_list:
-        #     if edge.way_id == 1000045:
+        #     if edge.way_id == 140:
         #         print 'suc', veh, spd, data.stime
         ret = 0
     elif last_edge is None and cur_edge is not None:
         speed_list = [[cur_edge, data.speed]]
         # for edge, spd in speed_list:
-        #     if edge.way_id == 1000045:
-        #         print 'first', veh, spd, data.stime, dist
+        #     if edge.way_id == 144:
+        #         print 'first', veh, spd, data.stime
         ret = 1
 
     point_list[veh], edge_list[veh] = cur_point, cur_edge

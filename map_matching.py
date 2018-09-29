@@ -167,8 +167,9 @@ class MapMatching(object):
             except KeyError:
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
+
             if c == 'm' or c == 'red':
-                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid % 1000))
+                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
             # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:
@@ -248,15 +249,7 @@ class MapMatching(object):
             if angle < 0.3:
                 continue
             score = w0 * dist + w1 * (1 - angle)
-            # if cnt == 10:
-            #     x, y = last_point[0:2]
-            #     plt.plot(x, y, 'ro')
-            #     x, y = point[0:2]
-            #     plt.plot(x, y, 'rs')
-            #     x, y = p0[0:2]
-            #     plt.plot(x, y, 'bo')
-            #     x, y = p1[0:2]
-            #     plt.plot(x, y, 'bs')
+            # if cnt == 48:
             #     print edge.edge_index, dist, score, angle
             if score < min_score:
                 min_score, sel_edge, min_dist, sel_angle = score, edge, dist, angle
@@ -279,7 +272,7 @@ class MapMatching(object):
         get best fit point matched with candidate edges
         :param taxi_data: Taxi_Data
         :param candidate: list[edge0, edge1, edge...]
-        :param last_point: last matched point
+        :param last_point: last position point
         :param cnt: for debug
         :return: matched point, matched edge, minimum distance from point to matched edge
         """
@@ -295,21 +288,23 @@ class MapMatching(object):
         else:
             return self._get_mod_point_later(candidate, point, last_point, cnt)
 
-    def PNT_MATCH(self, data, last_data, last_point, cnt=-1):
+    def PNT_MATCH(self, data, last_data, cnt=-1):
         """
         点到路段匹配，仅考虑前一个点
         :param data: 当前的TaxiData，见本模块
         :param last_data: 上一数据
-        :param last_point: 上一次匹配到的点
         :param cnt:  for test
         :return: 本次匹配到的点 cur_point 本次匹配到的边 cur_edge 
         """
         # 用分块方法做速度更快
         # 实际上kdtree效果也不错，所以就用kdtree求最近节点knn
         candidate_edges = self.get_candidate_first(data, self.kdt, self.X)
-        # if cnt == 2:
-        #     draw_edge_list(candidate_edges)
-        cur_point, cur_edge, score = self.get_mod_point(data, last_data, candidate_edges, last_point, cnt)
+        if last_data is None:
+            last_point = None
+        else:
+            last_point = [last_data.px, last_data.py]
+        cur_point, cur_edge, score = self.get_mod_point(data, last_data,
+                                                        candidate_edges, last_point, cnt)
         if score > 60:
             cur_point, cur_edge = None, None
         return cur_point, cur_edge

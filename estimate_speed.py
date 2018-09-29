@@ -39,8 +39,8 @@ def get_speed_list_a1(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     edge_list, dist_list = zip(*travel_list)
     seg_speed_list = zip(edge_list, speed_list)
 
-    global ab_cnt
-    ab_cnt += 1
+    global normal_cnt
+    normal_cnt += 1
     return seg_speed_list
 
 

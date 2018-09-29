@@ -94,6 +94,14 @@ def bcd2time(bcd_time):
     return str_dt
 
 
+def get_car_state(state):
+    """
+    :param state: 车辆状态位
+    :return: 卫星定位，empty or load
+    """
+    return (state >> 0) & 1, (state >> 9) & 1
+
+
 def trans(src):
     message = ""
     L = len(src)
@@ -136,6 +144,7 @@ class My905Listener(object):
         str_isu = isu2str(isu)
         # print str_isu,
         alarm, state, lat, lng, spd, ort = struct.unpack("!IIIIHB", body)
+        pos, load = get_car_state(state)
         # print lat, lng, spd
         wglat, wglng = float(lat) / 600000, float(lng) / 600000
         if outOfChina(wglat, wglng):
@@ -144,7 +153,8 @@ class My905Listener(object):
             # print lng, lat, spd
             # 用json字符串发送
             msg_key = str(self.cnt)
-            msg_dict = {'isu': str_isu, 'longi': mlng, 'lati': mlat, 'speed': spd, 'speed_time': speed_time, 'ort': ort}
+            msg_dict = {'isu': str_isu, 'longi': mlng, 'lati': mlat, 'speed': spd, 'speed_time': speed_time,
+                        'pos': pos, 'load': load, 'ort': ort}
 
             try:
                 msg_json = json.dumps(msg_dict)
@@ -152,7 +162,7 @@ class My905Listener(object):
                 print msg_dict
                 return
             # conn_dest.send(body=msg_json, destination='/queue/fcd_position')
-            conn_redis.set(name=msg_key, value=msg_json, ex=300)
+            conn_redis.set(name=msg_key, value=msg_json, ex=600)
             self.cnt += 1
             if self.cnt % 1000 == 0:
                 self.on_cnt(time.clock() - self.ticker)

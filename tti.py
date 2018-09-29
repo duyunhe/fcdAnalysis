@@ -40,25 +40,73 @@ def calc_speed():
     conn.close()
 
 
-def get_tti(radio):
+def get_tti_v2(speed, def_speed):
     """
-    :param radio: 当前速度与自由流下速度比率倒数
-    :return: TTI(travel time index)
+    storm高速公路实时交通指数评估方法中的tti实现
+	划分为五档
+	畅通 大于自由流速度的0.7倍
+	基本畅通 在0.5到0.7之间
+	轻度拥堵 在0.4到0.5之间
+	中度拥堵 在0.3到0.4之间
+    :param speed: 路段实际速度
+    :param def_speed: 路段期望速度
+    :return: 
     """
-    max_radio = 10
-    min_radio = 1.2
+    v_list = [1.0, 0.7, 0.5, 0.4, 0.3, 0, -1e20]
+    radio = speed / def_speed
+    if radio > 1.0:
+        return 0.0
+    for i, v in enumerate(v_list):
+        if radio >
+            tti = (i - 1) * 2 + (radio - v_list[i - 1]) / (v_list[i - 1] - v_list[i])
+            return tti
+
+
+def get_tti_v1(speed, def_speed):
+    """
+    :param speed: 路段实际速度
+    :param def_speed: 路段期望速度
+    :return: tti
+    """
+    radio = def_speed / speed
+    max_radio = def_speed / 5.0     # 严重拥堵情况下的最大比率
+    min_radio = 1.0
     if radio > max_radio:
-        tti = 10
+        tti = 9.9
     elif radio < min_radio:
         tti = 0
     else:
-        r1, r0, r = math.log(max_radio), math.log(min_radio), math.log(radio)
-        tti = (r - r0) / (r1 - r0) * 10
+        tti = (radio - min_radio) / (max_radio - min_radio) * 10
+    return tti
+
+
+def get_tti_v0(speed, def_speed):
+    """
+    :param speed: 路段实际速度
+    :param def_speed: 路段期望速度
+    :return: tti
+    """
+    if speed < 1e-5:
+        speed = 0.1
+    radio = def_speed / speed
+    max_radio = 4.0
+    min_radio = 1.0
+    if radio > max_radio:
+        tti = 9.9
+    elif radio < min_radio:
+        tti = 0
+    else:
+        tti = (radio - min_radio) / (max_radio - min_radio) * 10
     return tti
 
 
 def draw():
-    x = np.arange(1, 70, 0.1)
-    y = [get_tti(50 / i) for i in x]
+    x = np.arange(0, 1, 0.01)
+    y = [get_tti_v2(i, 1) for i in x]
     plt.plot(x, y)
     plt.show()
+
+
+get_tti_v2(0.3, 1)
+draw()
+
