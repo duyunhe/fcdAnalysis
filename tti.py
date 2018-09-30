@@ -109,7 +109,3 @@ def draw():
     plt.plot(x, y)
     plt.show()
 
-
-get_tti_v2(0.30, 1)
-draw()
-

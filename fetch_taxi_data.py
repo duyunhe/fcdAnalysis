@@ -162,7 +162,7 @@ class My905Listener(object):
                 print msg_dict
                 return
             # conn_dest.send(body=msg_json, destination='/queue/fcd_position')
-            conn_redis.set(name=msg_key, value=msg_json, ex=600)
+            conn_redis.set(name=msg_key, value=msg_json, ex=300)
             self.cnt += 1
             if self.cnt % 1000 == 0:
                 self.on_cnt(time.clock() - self.ticker)
