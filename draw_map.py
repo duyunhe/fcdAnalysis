@@ -14,6 +14,12 @@ def edge2xy(e):
 
 
 def draw_edge(e, c):
+    """
+    画线段边
+    :param e: Edge
+    :param c: color
+    :return: 
+    """
     x0, y0, x1, y1 = edge2xy(e)
     x, y = [x0, x1], [y0, y1]
     plt.plot(x, y, c, linewidth=2)
@@ -21,6 +27,11 @@ def draw_edge(e, c):
 
 
 def draw_edge_list(edge_list):
+    """
+    特别用于绘制候选边
+    :param edge_list: 
+    :return: 
+    """
     for edge in edge_list:
         if edge.oneway is True:
             draw_edge(edge, 'gold')

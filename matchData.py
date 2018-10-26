@@ -327,9 +327,9 @@ def save_roadspeed_bak(conn, speed_dict):
 
 
 def main():
-    # trace_dict = get_all_gps_data()
+    trace_dict = get_all_gps_data()
     conn = oracle_util.get_connection()
-    trace_dict = get_gps_data()
+    # trace_dict = get_gps_data()
     # trace_dict = get_gps_data_from_redis()
     # print len(trace)
     mod_list = []
@@ -349,14 +349,10 @@ def main():
                     road_temp[edge.way_id] = [[spd, edge.edge_length]]
                 tup = (edge.way_id, spd, veh, data.stime)
                 tup_list.append(tup)
-            dtrace = trace
+            # dtrace = trace
             if mod_point is not None:
                 mod_list.append(mod_point)
-    # cursor = conn.cursor()
-    # cursor.execute("truncate table tb_road_speed_detail")
-    # cursor.executemany(sql, tup_list)
-    # conn.commit()
-    # cursor.close()
+
     print "update speed detail"
     def_speed = get_def_speed(conn)
     road_speed = {}
@@ -371,7 +367,7 @@ def main():
         # if n_sample < 15:
         #     spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
         radio = def_speed[rid] / spd
-        idx = get_tti_v2(radio, def_speed[rid])
+        idx = get_tti_v2(spd, def_speed[rid])
         # print rid, S / W, len(sp_list), radio, idx
 
         road_speed[rid] = [spd, n_sample, idx]
@@ -381,8 +377,8 @@ def main():
 
     et = clock()
     print "main process {0}".format(len(trace_dict)), et - bt
-    draw_trace(dtrace)
-    draw_points(mod_list)
+    # draw_trace(dtrace)
+    # draw_points(mod_list)
     draw_map(road_speed)
     plt.show()
     conn.close()

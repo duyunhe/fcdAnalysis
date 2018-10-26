@@ -392,7 +392,6 @@ def main():
     conn.close()
 
 
-# get_gps_data_from_redis()
 if __name__ == '__main__':
     logging.basicConfig()
     scheduler = BlockingScheduler()

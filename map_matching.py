@@ -81,7 +81,7 @@ class MapInfo:
                     self.map_node[nodeid] = nd
                 if i > 0:
                     edge_length = calc_dist([x, y], [lastx, lasty])
-                    edge = MapEdge(self.map_node[last_nodeid], self.map_node[nodeid], r.direction == "1",
+                    edge = MapEdge(self.map_node[last_nodeid], self.map_node[nodeid], True,
                                    len(self.map_edge), edge_length, rid)
                     self.map_edge.append(edge)
                 r.add_node(nd)
@@ -168,8 +168,8 @@ class MapMatching(object):
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
 
-            if c == 'm' or c == 'red':
-                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
+            # if c == 'm' or c == 'red':
+            #     plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
             # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:
@@ -184,7 +184,7 @@ class MapMatching(object):
         :param kdt: kd-tree
         :return: edge candidate list  list[edge0, edge1, edge...]
         """
-        dist, ind = kdt.query([[taxi_data.px, taxi_data.py]], k=20)
+        dist, ind = kdt.query([[taxi_data.px, taxi_data.py]], k=15)
 
         pts = []
         seg_set = set()
@@ -249,14 +249,14 @@ class MapMatching(object):
             if angle < 0.3:
                 continue
             score = w0 * dist + w1 * (1 - angle)
-            # if cnt == 48:
+            # if cnt == 4:
             #     print edge.edge_index, dist, score, angle
             if score < min_score:
                 min_score, sel_edge, min_dist, sel_angle = score, edge, dist, angle
         # print min_score, sel_edge.way_id, min_dist, sel_angle
 
-        if min_dist > 50:
-            return None, None, 0
+        # if min_dist > 100:
+        #     return None, None, 0
         if sel_edge is None:
             return None, None, 0
         project_point, _, state = point_project(point, sel_edge.node0.point, sel_edge.node1.point)
@@ -271,9 +271,10 @@ class MapMatching(object):
         """
         get best fit point matched with candidate edges
         :param taxi_data: Taxi_Data
+        :param last_data: last Taxi_Data
         :param candidate: list[edge0, edge1, edge...]
-        :param last_point: last position point
-        :param cnt: for debug
+        :param last_point: last position point ([px, py])
+        :param cnt: for debug, int
         :return: matched point, matched edge, minimum distance from point to matched edge
         """
         point = [taxi_data.px, taxi_data.py]
@@ -292,20 +293,23 @@ class MapMatching(object):
         """
         点到路段匹配，仅考虑前一个点
         :param data: 当前的TaxiData，见本模块
-        :param last_data: 上一数据
-        :param cnt:  for test
-        :return: 本次匹配到的点 cur_point 本次匹配到的边 cur_edge 
+        :param last_data: 上一TaxiData数据
+        :param cnt:  for test, int
+        :return: 本次匹配到的点 cur_point (Point) 本次匹配到的边 cur_edge (Edge)
         """
         # 用分块方法做速度更快
         # 实际上kdtree效果也不错，所以就用kdtree求最近节点knn
         candidate_edges = self.get_candidate_first(data, self.kdt, self.X)
+        # if cnt == 4:
+        #     draw_edge_list(candidate_edges)
         if last_data is None:
             last_point = None
         else:
             last_point = [last_data.px, last_data.py]
         cur_point, cur_edge, score = self.get_mod_point(data, last_data,
                                                         candidate_edges, last_point, cnt)
-        if score > 60:
+        # 注意：得分太高（太远、匹配不上）会过滤
+        if score > 100:
             cur_point, cur_edge = None, None
         return cur_point, cur_edge
 

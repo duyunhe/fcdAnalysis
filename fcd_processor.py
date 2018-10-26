@@ -34,17 +34,7 @@ def match2road(veh, data, cnt):
     speed_list = []
     ret = -1
     esti = True
-    # if last_data is not None:
-    #     dt = (data.stime - last_data.stime).total_seconds()
-    #     # 过滤异常
-    #     if dt <= 10 or dt > 120:
-    #         esti = False
-    #     elif dist > 100 / 3.6 * dt:  # 距离阈值
-    #         esti = False
-    #     elif data.speed == last_data.speed and data.direction == last_data.direction:  # 非精确
-    #         esti = False
-    #     elif dist < 15:             # GPS的误差在15米，不准确
-    #         esti = False
+
     if cnt == 0:
         esti = False
     if not esti:
