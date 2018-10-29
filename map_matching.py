@@ -168,8 +168,8 @@ class MapMatching(object):
                 c = 'k'
             plt.plot(x, y, c=c, alpha=0.3, linewidth=2)
 
-            # if c == 'm' or c == 'red':
-            #     plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
+            if c == 'm' or c == 'red':
+                plt.text((x[0] + x[-1]) / 2, (y[0] + y[-1]) / 2, "{0}".format(rid))
             # plt.text(x[0], y[0], "{0},{1}".format(rid, speed))
 
         # for e in self.mi.map_edge:

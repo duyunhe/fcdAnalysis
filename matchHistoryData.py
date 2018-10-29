@@ -18,7 +18,9 @@ import json
 import os
 import redis
 from apscheduler.schedulers.blocking import BlockingScheduler
-import logging
+import multiprocessing
+
+
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
 
@@ -62,10 +64,10 @@ def get_all_gps_data():
     从数据库中获取一段时间的GPS数据
     :return: 
     """
-    end_time = datetime(2018, 5, 8, 6, 0, 0)
+    begin_time = datetime(2018, 5, 1, 0, 0, 0)
     conn = cx_Oracle.connect('hz/hz@192.168.11.88:1521/orcl')
     bt = clock()
-    begin_time = end_time + timedelta(minutes=-5)
+    end_time = begin_time + timedelta(hours=1)
     # sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
     #       "TB_GPS_1805 t where speed_time >= :1 " \
     #       "and speed_time < :2 and vehicle_num = '浙AT7902' order by speed_time "
@@ -105,7 +107,6 @@ def get_all_gps_data():
         trace.sort(cmp1)
         new_trace = []
         last_data = None
-        i = 0
         for data in trace:
             esti = True
             dist = 0
