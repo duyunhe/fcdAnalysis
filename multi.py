@@ -45,20 +45,6 @@ def bl2xy(b, l):
     return x, y
 
 
-class TaxiData:
-    def __init__(self, veh, px, py, stime, state, speed, car_state, direction):
-        self.veh = veh
-        self.px, self.py, self.stime, self.state, self.speed = px, py, stime, state, speed
-        self.stop_index, self.dist, self.car_state, self.direction = 0, 0, car_state, direction
-        self.angle = 0
-
-    def set_index(self, index):
-        self.stop_index = index
-
-    def set_angle(self, angle):
-        self.angle = angle
-
-
 def calc_dist(pt0, pt1):
     """
     计算两点距离
@@ -70,15 +56,6 @@ def calc_dist(pt0, pt1):
     v1 = np.array(pt1)
     dist = np.linalg.norm(v0 - v1)
     return dist
-
-
-def cmp1(data1, data2):
-    if data1.stime > data2.stime:
-        return 1
-    elif data1.stime < data2.stime:
-        return -1
-    else:
-        return 0
 
 
 def work(trace_list):
@@ -128,7 +105,7 @@ def get_all_gps_data(begin_time):
     # begin_time = datetime(2018, 5, 1, 0, 0, 0)
     conn = cx_Oracle.connect('hz/hz@192.168.11.88:1521/orcl')
     bt = clock()
-    end_time = begin_time + timedelta(days=1)
+    end_time = begin_time + timedelta(hours=1)
     # sql = "select px, py, speed_time, state, speed, carstate, direction, vehicle_num from " \
     #       "TB_GPS_1805 t where speed_time >= :1 " \
     #       "and speed_time < :2 and vehicle_num = '浙AT7902' order by speed_time "
@@ -173,10 +150,8 @@ def get_all_gps_data(begin_time):
 
 
 def gene():
-    begin_time = datetime(2018, 5, 1, 0, 0, 0)
-    for i in range(31):
-        get_all_gps_data(begin_time)
-        begin_time += timedelta(days=1)
+    begin_time = datetime(2018, 5, 15, 8, 0, 0)
+    get_all_gps_data(begin_time)
 
 
 if __name__ == '__main__':

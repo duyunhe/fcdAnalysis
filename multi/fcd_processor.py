@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2018/8/16 10:58
-# @Author  : 
-# @简介    : 浮动车控制模块，保存信息，实现功能
+# @Time    : 2018/10/30 9:42
+# @Author  : yhdu@tongwoo.cn
+# @简介    : 多进程版浮动车控制模块
 # @File    : fcd_processor.py
 
-from map_matching import MapMatching
-from estimate_speed import estimate_road_speed
+from multi.map_matching import MapMatching
+from multi.estimate_speed import estimate_road_speed
 
 
 edge_list, point_list, data_list = {}, {}, {}
