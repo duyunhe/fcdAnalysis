@@ -152,24 +152,26 @@ def read_data2(filename):
 
 def match_work(trace_list, ret_list):
     road_temp = {}
+    for i in range(24):
+        road_temp[i] = {}
     for j, trace in enumerate(trace_list):
         for i, data in enumerate(trace):
             mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
+            hour = data.stime.hour
             for edge, spd in speed_list:
                 try:
-                    road_temp[edge.way_id].append([spd, edge.edge_length])
+                    road_temp[hour][edge.way_id].append([spd, edge.edge_length])
                 except KeyError:
-                    road_temp[edge.way_id] = [[spd, edge.edge_length]]
-    # ret_dict[0] = [[3, 120]]
+                    road_temp[hour][edge.way_id] = [[spd, edge.edge_length]]
 
-    for rid in road_temp.keys():
-        sp_list = road_temp[rid]
-        W, S = 0, 0
-        for sp, w in sp_list:
-            S, W = S + sp * w, W + w
-        spd = S / W
-        n_sample = len(sp_list)
-        ret_list.append([rid, spd, n_sample, W])
+    for hour in range(24):
+        for rid, sp_list in road_temp[hour].iteritems():
+            W, S = 0, 0
+            for sp, w in sp_list:
+                S, W = S + sp * w, W + w
+            spd = S / W
+            n_sample = len(sp_list)
+            ret_list.append([rid, spd, n_sample, W, hour])
 
 
 def multi(begin_time):
@@ -194,7 +196,7 @@ def multi(begin_time):
 
     # join
     speed_dict = {}
-    for rid, spd, n_sample, w in temp_list:
+    for rid, spd, n_sample, w, h in temp_list:
         try:
             speed_dict[rid].append([spd, n_sample, w])
         except KeyError:
@@ -205,16 +207,16 @@ def multi(begin_time):
         for spd, n_sample, w in info_list:
             N, S, W = N + n_sample, S + spd * w, W + w
         speed = S / W
-        speed_list.append([rid, speed, N])
+        speed_list.append([rid, speed, N, h])
         print rid, speed, N
 
     conn = cx_Oracle.connect('hz/hz@192.168.11.88:1521/orcl')
     sql = "insert into tb_history_speed values(:1, :2, :3, :4, :5)"
-    data_hour = begin_time.hour
+    # data_hour = begin_time.hour
     data_weekday = begin_time.weekday()
     tup_list = []
-    for rid, speed, n_sample in speed_list:
-        tup_list.append((rid, speed, data_hour, data_weekday, n_sample))
+    for rid, speed, n_sample, hour in speed_list:
+        tup_list.append((rid, speed, hour, data_weekday, n_sample))
     cursor = conn.cursor()
     cursor.executemany(sql, tup_list)
     conn.commit()
