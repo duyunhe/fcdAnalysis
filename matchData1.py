@@ -46,7 +46,7 @@ def cmp1(data1, data2):
 
 
 def get_history_speed(conn, speed_time):
-    sql = "select * from tb_history_speed where data_hour = {0} and data_weekday = {1}".format(
+    sql = "select * from TB_ROAD_HIS_SPEED where data_hour = {0} and data_weekday = {1}".format(
         speed_time.hour, speed_time.weekday()
     )
     cursor = conn.cursor()
@@ -344,7 +344,6 @@ def main():
     mod_list = []
     bt = clock()
     road_temp = {}
-    dtrace = []
     # sql = "insert into tb_road_speed_detail values(:1, :2, :3, :4)"
     tup_list = []
     for veh, trace in trace_dict.iteritems():
@@ -357,7 +356,6 @@ def main():
                     road_temp[edge.way_id] = [[spd, edge.edge_length]]
                 tup = (edge.way_id, spd, veh, data.stime)
                 tup_list.append(tup)
-            dtrace = trace
             if mod_point is not None:
                 mod_list.append(mod_point)
 
@@ -365,16 +363,16 @@ def main():
     def_speed = get_def_speed(conn)
     road_speed = {}
 
-    # his_speed = get_history_speed(conn, datetime.now())
+    his_speed = get_history_speed(conn, datetime.now())
     for rid, sp_list in road_temp.iteritems():
         W, S = 0, 0
         for sp, w in sp_list:
             S, W = S + sp * w, W + w
         spd = S / W
         n_sample = len(sp_list)
-        # if n_sample < 15:
-        #     spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
-        radio = def_speed[rid] / spd
+        if n_sample < 10:
+            spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
+        # radio = def_speed[rid] / spd
         idx = get_tti_v2(spd, def_speed[rid])
         # print rid, S / W, len(sp_list), radio, idx
 
@@ -382,7 +380,7 @@ def main():
 
     print "matchData1.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
     save_road_speed(conn, road_speed)
-    save_roadspeed_bak(conn, road_speed)
+    # save_roadspeed_bak(conn, road_speed)
     et = clock()
     print "main process {0}".format(len(trace_dict)), et - bt
     # draw_trace(dtrace)
