@@ -335,11 +335,71 @@ def save_road_speed_pre(conn, road_speed, stime):
     conn.commit()
 
 
+def get_road_speed(conn, road_speed_detail):
+    def_speed = get_def_speed(conn)
+    road_speed = {}
+    his_speed = get_history_speed(conn, datetime.now())
+    for rid, sp_list in road_speed_detail.iteritems():
+        W, S = 0, 0
+        for sp, w in sp_list:
+            S, W = S + sp * w, W + w
+        spd = S / W
+        n_sample = len(sp_list)
+        if n_sample < 10:
+            spd = (spd * n_sample + his_speed * 20) / (n_sample + 20)
+        # radio = def_speed[rid] / spd
+        idx = get_tti_v2(spd, def_speed[rid])
+        # print rid, S / W, len(sp_list), radio, idx
+        road_speed[rid] = [spd, n_sample, idx]
+    return road_speed
+
+
+def save_global_tti(conn, road_speed, db_time):
+    """
+    通过road_speed 得到全城市的tti指数
+    :param conn: 
+    :param road_speed: { rid: [speed, n_sample, tti] }
+    rid: int road id
+    speed: float 道路速度
+    n_sample: int 道路上的采样点数量
+    tti: 道路的出行指数
+    :param db_time 写库时间
+    :return: 
+    """
+    road_dist = {}
+    cursor = conn.cursor()
+    sql = "select rid, road_desc from tb_road_state"
+    cursor.execute(sql)
+    for item in cursor:
+        rid = int(item[0])
+        dist = float(item[1])
+        road_dist[rid] = dist
+    sql = "insert into TB_TRAFFIC_INDEX values(:1, :2, :3, :4, :5)"
+    # tti, fast_speed, main_speed, congest_ratio
+    S, T, W = .0, .0, .0        # speed, tti, dist
+    congest_dist = .0
+    for rid, item in road_speed.iteritems():
+        speed, n, tti = item[:]
+        w = road_dist[rid]
+        W += w
+        if tti > 4.0:
+            congest_dist += w
+        S, T = S + speed * w, T + tti * w
+    mean_speed, mean_tti = S / W, T / W
+    congest_ratio = congest_dist * 100.0 / W
+    tup = (mean_tti, 50, mean_speed, congest_ratio, db_time)
+    cursor.execute(sql, tup)
+    conn.commit()
+    cursor.close()
+
+
 def main():
+    run_time = datetime.now()
     # trace_dict = get_all_gps_data()
     conn = oracle_util.get_connection()
     # trace = get_gps_data(conn, begin_time, veh)
     trace_dict = get_gps_data_from_redis()
+
     # print len(trace)
     mod_list = []
     bt = clock()
@@ -360,27 +420,14 @@ def main():
                 mod_list.append(mod_point)
 
     print "update speed detail"
-    def_speed = get_def_speed(conn)
-    road_speed = {}
-
-    his_speed = get_history_speed(conn, datetime.now())
-    for rid, sp_list in road_temp.iteritems():
-        W, S = 0, 0
-        for sp, w in sp_list:
-            S, W = S + sp * w, W + w
-        spd = S / W
-        n_sample = len(sp_list)
-        if n_sample < 10:
-            spd = (spd * n_sample + his_speed * 30) / (n_sample + 30)
-        # radio = def_speed[rid] / spd
-        idx = get_tti_v2(spd, def_speed[rid])
-        # print rid, S / W, len(sp_list), radio, idx
-
-        road_speed[rid] = [spd, n_sample, idx]
-
+    # 每条道路的速度
+    road_speed = get_road_speed(conn, road_temp)
     print "matchData1.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+    # 当前路况
     save_road_speed(conn, road_speed)
-    # save_roadspeed_bak(conn, road_speed)
+    # 当前交通指数
+    save_global_tti(conn, road_speed, run_time)
+
     et = clock()
     print "main process {0}".format(len(trace_dict)), et - bt
     # draw_trace(dtrace)
@@ -394,7 +441,7 @@ if __name__ == '__main__':
     logging.basicConfig()
     scheduler = BlockingScheduler()
     # scheduler.add_job(tick, 'interval', days=1)
-    scheduler.add_job(main, 'interval', minutes=3)
+    scheduler.add_job(main, 'cron', minute='*/5')
     main()
     try:
         scheduler.start()
