@@ -6,20 +6,21 @@
 
 from DBConn import oracle_util
 import cx_Oracle
-from fcd_processor import match2road, draw_map
+from fcd_processor import match2road
 import estimate_speed
 from datetime import datetime, timedelta
 from geo import bl2xy, calc_dist
 from tti import get_tti_v0, get_tti_v2
 import matplotlib.pyplot as plt
 from time import clock
-import numpy as np
 import json
 import os
 import redis
 from apscheduler.schedulers.blocking import BlockingScheduler
 import logging
+
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
+ROAD_NUMBER = 5432
 
 
 class TaxiData:
@@ -45,16 +46,23 @@ def cmp1(data1, data2):
         return 0
 
 
-def get_history_speed(conn, speed_time):
+def get_history_speed_list(conn, speed_time):
+    """
+    :param conn: Oracle connection
+    :param speed_time: datetime.now()
+    :return: list of speed (float), road speed for each
+    """
     sql = "select * from TB_ROAD_HIS_SPEED where data_hour = {0} and data_weekday = {1}".format(
         speed_time.hour, speed_time.weekday()
     )
     cursor = conn.cursor()
     cursor.execute(sql)
-    speed = 0.0
+    speed_list = [.0] * ROAD_NUMBER
     for item in cursor:
+        rid = int(item[0])
         speed = float(item[1])
-    return speed
+        speed_list[rid] = speed
+    return speed_list
 
 
 def get_all_gps_data():
@@ -338,20 +346,49 @@ def save_road_speed_pre(conn, road_speed, stime):
 def get_road_speed(conn, road_speed_detail):
     def_speed = get_def_speed(conn)
     road_speed = {}
-    his_speed = get_history_speed(conn, datetime.now())
+    his_speed_list = get_history_speed_list(conn, datetime.now())
     for rid, sp_list in road_speed_detail.iteritems():
         W, S = 0, 0
         for sp, w in sp_list:
             S, W = S + sp * w, W + w
         spd = S / W
         n_sample = len(sp_list)
+        # 当采样点过少时，通过历史记录加权
         if n_sample < 10:
-            spd = (spd * n_sample + his_speed * 20) / (n_sample + 20)
+            # weight = 20 ?
+            spd = (spd * n_sample + his_speed_list[rid] * 20) / (n_sample + 20)
         # radio = def_speed[rid] / spd
         idx = get_tti_v2(spd, def_speed[rid])
         # print rid, S / W, len(sp_list), radio, idx
         road_speed[rid] = [spd, n_sample, idx]
+    # 直接上历史记录
+    for rid in range(ROAD_NUMBER):
+        if rid not in road_speed.keys():
+            idx = get_tti_v2(his_speed_list[rid], def_speed[rid])
+            road_speed[rid] = [his_speed_list[rid], 0, idx]
     return road_speed
+
+
+def process_gps_data(trace_dict, road_info_dict, mod_list):
+    """
+    将存放在trace dict里的原始GPS记录通过地图匹配转换成为road_info_dict中的地图路况信息
+    road_info_dict中每条道路有一系列速度记录
+    :param trace_dict: {vehicle_num (string): list of Taxi_Data}
+    :param road_info_dict: {rid (int): list of [speed (float), road_length (float)]}
+    :param mod_list: 地图打点用
+    :return: 
+    """
+    for veh, trace in trace_dict.iteritems():
+        for i, data in enumerate(trace):
+            # 地图匹配
+            mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
+            for edge, spd in speed_list:
+                try:
+                    road_info_dict[edge.way_id].append([spd, edge.edge_length])
+                except KeyError:
+                    road_info_dict[edge.way_id] = [[spd, edge.edge_length]]
+            if mod_point is not None:
+                mod_list.append(mod_point)
 
 
 def save_global_tti(conn, road_speed, db_time):
@@ -404,26 +441,13 @@ def main():
     mod_list = []
     bt = clock()
     road_temp = {}
-    # sql = "insert into tb_road_speed_detail values(:1, :2, :3, :4)"
-    tup_list = []
-    for veh, trace in trace_dict.iteritems():
-        for i, data in enumerate(trace):
-            mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
-            for edge, spd in speed_list:
-                try:
-                    road_temp[edge.way_id].append([spd, edge.edge_length])
-                except KeyError:
-                    road_temp[edge.way_id] = [[spd, edge.edge_length]]
-                tup = (edge.way_id, spd, veh, data.stime)
-                tup_list.append(tup)
-            if mod_point is not None:
-                mod_list.append(mod_point)
-
+    # 匹配计算
+    process_gps_data(trace_dict, road_info_dict=road_temp, mod_list=mod_list)
     print "update speed detail"
     # 每条道路的速度
     road_speed = get_road_speed(conn, road_temp)
     print "matchData1.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
-    # 当前路况
+    # 保存当前路况
     save_road_speed(conn, road_speed)
     # 当前交通指数
     save_global_tti(conn, road_speed, run_time)
