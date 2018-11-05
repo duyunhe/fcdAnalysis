@@ -9,7 +9,7 @@ from estimate_speed import estimate_road_speed
 
 
 edge_list, point_list, data_list = {}, {}, {}
-mm = MapMatching()
+mm = MapMatching(1)
 # 根据车辆id保存车辆各种信息
 
 

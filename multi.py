@@ -178,5 +178,12 @@ def gene():
         get_all_gps_data(begin_time)
 
 
+
+def split():
+    for i in range(31):
+        begin_time = datetime(2018, 5, i, 0, 0, 0)
+        p = multiprocessing.Process(target=split_file, args=(begin_time,))
+
+
 if __name__ == '__main__':
-    gene()
+    split()

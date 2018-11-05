@@ -35,13 +35,14 @@ class MapInfo:
         self.map_road = {}  # 记录道路信息
         self.kdt, self.X = None, None
 
-    def load_map(self):
+    def load_map(self, map_level):
         conn = oracle_util.get_connection()
 
-        sql = "select * from tb_road_state where direction = 0"
+        sql = "select * from tb_road_state where map_level = :1"
+        tup = (map_level,)
         # 单行线不予录入
         cursor = conn.cursor()
-        cursor.execute(sql)
+        cursor.execute(sql, tup)
         for item in cursor:
             road_name, direction, level = item[1:4]
             r = MapRoad(road_name, direction, level)
@@ -51,8 +52,9 @@ class MapInfo:
         map_temp_node = {}  # 维护地图节点
         road_point = {}
         sql = "select rp.* from tb_road_point rp, tb_road_state" \
-              " rs where rp.rid = rs.rid and rs.direction = 0 order by rp.rid, rp.seq "
-        cursor.execute(sql)
+              " rs where rp.rid = rs.rid and rs.map_level = :1 and rp.map_level = :2 order by rp.rid, rp.seq "
+        tup = (map_level, map_level)
+        cursor.execute(sql, tup)
         for item in cursor:
             rid = item[0]
             lng, lat = map(float, item[2:4])
@@ -101,8 +103,8 @@ class MapInfo:
                 n0.add_rlink(edge, n1)
                 n1.add_rlink(edge, n0)
 
-    def init_map(self):
-        self.load_map()
+    def init_map(self, map_level):
+        self.load_map(map_level)
         self.store_link()
 
     def get_node(self):
@@ -119,10 +121,10 @@ class MapMatching(object):
     单点匹配时调用PNT_MATCH，传入当前GPS点的位置和车辆标识，得到匹配点和匹配边
     """
 
-    def __init__(self):
+    def __init__(self, map_level):
         print "map matching init..."
         self.mi = MapInfo()
-        self.mi.init_map()
+        self.mi.init_map(map_level)
         self.map_node = self.mi.get_node()
         self.map_edge = self.mi.get_edge()
         self.nodeid_list = []

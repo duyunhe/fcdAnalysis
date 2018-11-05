@@ -92,7 +92,7 @@ def get_tti_v0(speed, def_speed):
     if speed < 1e-5:
         speed = 0.1
     radio = def_speed / speed
-    max_radio = 4.0
+    max_radio = 3.0
     min_radio = 1.0
     if radio > max_radio:
         tti = 9.9
@@ -105,7 +105,6 @@ def get_tti_v0(speed, def_speed):
 
 def draw():
     x = np.arange(0, 1, 0.01)
-    y = [get_tti_v2(i, 1) for i in x]
+    y = [get_tti_v0(i, 1) for i in x]
     plt.plot(x, y)
     plt.show()
-

@@ -86,22 +86,25 @@ def read_data(filename):
     trace_list = []
     trace = []
     last_veh = ''
-    with open(filename) as fp:
-        for line in fp:
-            items = line.split(',')
-            veh, px, py, stime, state, speed, car_state, ort = items[:]
-            px, py, speed, ort = float(px), float(py), float(speed), float(ort)
-            state, car_state = int(state), int(car_state)
-            stime = datetime.strptime(stime, "%Y-%m-%d %H:%M:%S")
-            taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
-            if last_veh != veh:
-                if len(trace) > 0:
-                    trace_list.append(sort_data(trace))
-                    trace = []
-            trace.append(taxi_data)
-            last_veh = veh
-        if len(trace) > 0:
-            trace_list.append(sort_data(trace))
+    try:
+        with open(filename) as fp:
+            for line in fp:
+                items = line.split(',')
+                veh, px, py, stime, state, speed, car_state, ort = items[:]
+                px, py, speed, ort = float(px), float(py), float(speed), float(ort)
+                state, car_state = int(state), int(car_state)
+                stime = datetime.strptime(stime, "%Y-%m-%d %H:%M:%S")
+                taxi_data = TaxiData(veh, px, py, stime, state, speed, car_state, ort)
+                if last_veh != veh:
+                    if len(trace) > 0:
+                        trace_list.append(sort_data(trace))
+                        trace = []
+                trace.append(taxi_data)
+                last_veh = veh
+            if len(trace) > 0:
+                trace_list.append(sort_data(trace))
+    except IOError:
+        pass
 
     et = clock()
     print "read data", et - bt
@@ -176,7 +179,10 @@ def match_work(trace_list, ret_list):
 
 def multi(begin_time):
     str_dt = begin_time.strftime("%Y-%m-%d")
+    print str_dt
     trace_list = read_data("./data/{0}.txt".format(str_dt))
+    if len(trace_list) == 0:
+        return
     # trace_list = []
     bt = clock()
 
@@ -192,28 +198,31 @@ def multi(begin_time):
     for p in pc_list:
         p.join()
     et = clock()
-    print "multi", et - bt
+    print "multi join", et - bt
 
     # join
     speed_dict = {}
+    for h in range(24):
+        speed_dict[h] = {}
     for rid, spd, n_sample, w, h in temp_list:
         try:
-            speed_dict[rid].append([spd, n_sample, w])
+            speed_dict[h][rid].append([spd, n_sample, w])
         except KeyError:
-            speed_dict[rid] = [[spd, n_sample, w]]
+            speed_dict[h][rid] = [[spd, n_sample, w]]
     speed_list = []
-    for rid, info_list in speed_dict.iteritems():
-        N, S, W = 0, 0, 0
-        for spd, n_sample, w in info_list:
-            N, S, W = N + n_sample, S + spd * w, W + w
-        speed = S / W
-        speed_list.append([rid, speed, N, h])
-        print rid, speed, N
+    for h in range(24):
+        for rid, info_list in speed_dict[h].iteritems():
+            N, S, W = 0, 0, 0
+            for spd, n_sample, w in info_list:
+                N, S, W = N + n_sample, S + spd * w, W + w
+            speed = S / W
+            speed_list.append([rid, speed, N, h])
+            print rid, speed, N
 
     conn = cx_Oracle.connect('hz/hz@192.168.11.88:1521/orcl')
     sql = "insert into tb_history_speed values(:1, :2, :3, :4, :5)"
     # data_hour = begin_time.hour
-    data_weekday = begin_time.weekday()
+    data_weekday = begin_time.day
     tup_list = []
     for rid, speed, n_sample, hour in speed_list:
         tup_list.append((rid, speed, hour, data_weekday, n_sample))
@@ -225,5 +234,6 @@ def multi(begin_time):
 
 
 if __name__ == '__main__':
-    bt = datetime(2018, 5, 15, 0, 0, 0)
-    multi(bt)
+    for _i in range(1, 32):
+        st = datetime(2018, 5, _i, 0, 0, 0)
+        multi(st)
