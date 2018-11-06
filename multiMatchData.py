@@ -189,8 +189,8 @@ def multi(begin_time):
     manager = multiprocessing.Manager()
     temp_list = manager.list()
     pc_list = []
-    for i in range(4):
-        p = multiprocessing.Process(target=match_work, args=(trace_list[i::4], temp_list))
+    for i in range(8):
+        p = multiprocessing.Process(target=match_work, args=(trace_list[i::8], temp_list))
         p.daemon = True
         pc_list.append(p)
     for p in pc_list:
@@ -217,7 +217,7 @@ def multi(begin_time):
                 N, S, W = N + n_sample, S + spd * w, W + w
             speed = S / W
             speed_list.append([rid, speed, N, h])
-            print rid, speed, N
+            # print rid, speed, N
 
     conn = cx_Oracle.connect('hz/hz@192.168.11.88:1521/orcl')
     sql = "insert into tb_history_speed values(:1, :2, :3, :4, :5)"
@@ -234,6 +234,6 @@ def multi(begin_time):
 
 
 if __name__ == '__main__':
-    for _i in range(1, 32):
+    for _i in range(3, 32):
         st = datetime(2018, 5, _i, 0, 0, 0)
         multi(st)

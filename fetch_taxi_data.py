@@ -88,7 +88,7 @@ def bcd2time(bcd_time):
     try:
         dt = datetime(2000 + yy, mm, dd, hh, mi, ss)
     except ValueError:
-        print yy, mm, dd, hh, mi, ss
+        # print yy, mm, dd, hh, mi, ss
         return ""
     str_dt = dt.strftime("%Y-%m-%d %H:%M:%S")
     return str_dt
@@ -139,7 +139,7 @@ class My905Listener(object):
         body = message[13:32]
         stime = message[32:38]
         speed_time = bcd2time(stime)
-        if speed_time == "":
+        if speed_time == "":            # 异常
             return
         str_isu = isu2str(isu)
         # print str_isu,
@@ -155,13 +155,12 @@ class My905Listener(object):
             msg_key = str(self.cnt)
             msg_dict = {'isu': str_isu, 'longi': mlng, 'lati': mlat, 'speed': spd, 'speed_time': speed_time,
                         'pos': pos, 'load': load, 'ort': ort}
-
             try:
                 msg_json = json.dumps(msg_dict)
             except UnicodeDecodeError:
-                print msg_dict
+                # print msg_dict
                 return
-            # conn_dest.send(body=msg_json, destination='/queue/fcd_position')
+
             conn_redis.set(name=msg_key, value=msg_json, ex=300)
             self.cnt += 1
             if self.cnt % 1000 == 0:
@@ -175,6 +174,48 @@ class My905Listener(object):
 
     def on_cnt(self, x):
         pass
+
+
+class OnlineCarListener(object):
+    def __init__(self):
+        self.cnt = 0
+        self.ticker = time.clock()
+
+    def on_cnt(self, x):
+        print "online car gateway count 1000 cost ", x, datetime.now()
+
+    def on_message(self, headers, message):
+        info = json.loads(message)
+        try:
+            str_isu = 'o' + info['VehicleNo'].encode('utf-8')       # online car
+            lati, longi = info['Latitude'] / 1000000.0, info['Longitude'] / 1000000.0
+            ort = info['Direction']
+            speed = info['Speed']
+            str_time = str(info['PositionTime'])
+            speed_dt = datetime.strptime(str_time, '%Y%m%d%H%M%S')
+            speed_time = speed_dt.strftime('%Y-%m-%d %H:%M:%S')
+            msg_key = str(self.cnt)
+            msg_dict = {'isu': str_isu, 'longi': longi, 'lati': lati, 'speed': speed,
+                        'speed_time': speed_time, 'pos': 0, 'load': 1, 'ort': ort}
+            try:
+                msg_json = json.dumps(msg_dict)
+            except UnicodeDecodeError:
+                print msg_dict
+                return
+            self.cnt += 1
+            conn_redis.set(name=msg_key, value=msg_json, ex=300)
+            self.cnt += 1
+            if self.cnt % 1000 == 0:
+                self.on_cnt(time.clock() - self.ticker)
+                # self.cnt = 0
+                self.ticker = time.clock()
+        except ValueError:
+            pass
+        except KeyError:
+            pass
+
+    def on_error(self, headers, message):
+        print('received an error %s' % message)
 
 
 class FTListener(My905Listener):
@@ -197,19 +238,25 @@ if __name__ == '__main__':
     conn1.set_listener('', FTListener())
     conn1.start()
     conn1.connect('admin', 'admin', wait=True)
-    conn1.subscribe(destination='/topic/position_ft', ack='auto')
+    # conn1.subscribe(destination='/topic/position_ft', ack='auto')
 
     conn = stomp.Connection10([('192.168.0.102', 61615)])
     conn.set_listener('', TYListener())
     conn.start()
     conn.connect('admin', 'admin', wait=True)
-    conn.subscribe(destination='/topic/position_ty', ack='auto')
+    # conn.subscribe(destination='/topic/position_ty', ack='auto')
 
     conn2 = stomp.Connection10([('192.168.0.102', 61615)])
     conn2.set_listener('', HQListener())
     conn2.start()
     conn2.connect('admin', 'admin', wait=True)
-    conn2.subscribe(destination='/topic/position_hq', ack='auto')
+    # conn2.subscribe(destination='/topic/position_hq', ack='auto')
+
+    conn3 = stomp.Connection10([('192.168.0.102', 61615)])
+    conn3.set_listener('', OnlineCarListener())
+    conn3.start()
+    conn3.connect('admin', 'admin', wait=True)
+    conn3.subscribe(destination='/topic/olData', ack='auto')
 
     while True:
         time.sleep(1)

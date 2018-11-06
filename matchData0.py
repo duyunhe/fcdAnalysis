@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2018/8/13 16:22
+# @Time    : 2018/11/5 16:22
 # @Author  : 
-# @简介    : 计算实时数据
-# @File    : matchData.py
+# @简介    : 计算实时数据 level 0
+# @File    : matchData0.py
 
 from DBConn import oracle_util
 import cx_Oracle
-from fcd_processor import match2road
+from fcd_processor0 import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
 from geo import bl2xy, calc_dist
@@ -20,7 +20,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 import logging
 
 os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
-ROAD_NUMBER = 5432
+ROAD_NUMBER = 190
 
 
 class TaxiData:
@@ -52,12 +52,12 @@ def get_history_speed_list(conn, speed_time):
     :param speed_time: datetime.now()
     :return: list of speed (float), road speed for each
     """
-    sql = "select * from TB_ROAD_HIS_SPEED where data_hour = {0} and data_weekday = {1}".format(
-        speed_time.hour, speed_time.weekday()
-    )
+    sql = "select * from TB_ROAD_HIS_SPEED where data_hour = {0} and data_weekday = {1} and" \
+          " map_level = 0".format(
+           speed_time.hour, speed_time.weekday())
     cursor = conn.cursor()
     cursor.execute(sql)
-    speed_list = [.0] * ROAD_NUMBER
+    speed_list = [50.0] * ROAD_NUMBER
     for item in cursor:
         rid = int(item[0])
         speed = float(item[1])
@@ -282,11 +282,11 @@ def draw_points(data_list):
 
 
 def save_road_speed(conn, road_speed):
-    sql = "delete from tb_road_speed where map_level = 1"
+    sql = "delete from tb_road_speed where map_level = 0"
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()
-    sql = "insert into tb_road_speed values(:1, :2, :3, :4, :5, 1)"
+    sql = "insert into tb_road_speed values(:1, :2, :3, :4, :5, 0)"
     tup_list = []
     for rid, speed_list in road_speed.iteritems():
         speed, num, tti = speed_list[:]
@@ -302,7 +302,7 @@ def save_road_speed(conn, road_speed):
 
 
 def get_def_speed(conn):
-    sql = "select rid, speed from tb_road_def_speed"
+    sql = "select rid, speed from tb_road_def_speed where map_level = 0"
     cursor = conn.cursor()
     cursor.execute(sql)
     def_speed = {}
@@ -355,10 +355,10 @@ def get_road_speed(conn, road_speed_detail):
             S, W = S + sp * w, W + w
         spd = S / W
         n_sample = len(sp_list)
-        # 当采样点过少时，通过历史记录加权
+        # 当采样点过少时，一定是通畅
         if n_sample < 10:
             # weight = 20 ?
-            spd = (spd * n_sample + his_speed_list[rid] * 20) / (n_sample + 20)
+            spd = (spd * n_sample + def_speed[rid] * 20) / (n_sample + 20)
         # radio = def_speed[rid] / spd
         idx = get_tti_v0(spd, def_speed[rid])
         # print rid, S / W, len(sp_list), radio, idx
@@ -366,8 +366,8 @@ def get_road_speed(conn, road_speed_detail):
     # 直接上历史记录
     for rid in range(ROAD_NUMBER):
         if rid not in road_speed.keys():
-            idx = get_tti_v2(his_speed_list[rid], def_speed[rid])
-            road_speed[rid] = [his_speed_list[rid], 0, idx]
+            idx = get_tti_v2(def_speed[rid], def_speed[rid])
+            road_speed[rid] = [def_speed[rid], 0, idx]
     return road_speed
 
 
@@ -448,18 +448,18 @@ def main():
     print "update speed detail"
     # 每条道路的速度
     road_speed = get_road_speed(conn, road_temp)
-    print "matchData1.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+    print "matchData0.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
     # 保存当前路况
     save_road_speed(conn, road_speed)
     # 当前交通指数
-    save_global_tti(conn, road_speed, run_time)
+    # save_global_tti(conn, road_speed, run_time)
 
     et = clock()
     print "main process {0}".format(len(trace_dict)), et - bt, run_time
     # draw_trace(dtrace)
     # draw_points(mod_list)
-    # draw_map(road_speed)
-    # plt.show()
+    draw_map(road_speed)
+    plt.show()
     conn.close()
 
 

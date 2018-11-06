@@ -6,7 +6,7 @@
 
 from DBConn import oracle_util
 import cx_Oracle
-from fcd_processor import match2road, draw_map
+from fcd_processor0 import match2road, draw_map
 import estimate_speed
 from datetime import datetime, timedelta
 from geo import bl2xy, calc_dist
@@ -299,7 +299,7 @@ def save_road_speed(conn, road_speed):
 
 
 def get_def_speed(conn):
-    sql = "select rid, speed from tb_road_def_speed"
+    sql = "select rid, speed from tb_road_def_speed where map_level = 0"
     cursor = conn.cursor()
     cursor.execute(sql)
     def_speed = {}
@@ -338,8 +338,8 @@ def main():
     dtrace = []
     tup_list = []
     for veh, trace in trace_dict.iteritems():
-        if veh != 'AT4710':
-            continue
+        # if veh != 'AT4710':
+        #     continue
         for i, data in enumerate(trace):
             mod_point, cur_edge, speed_list, ret = match2road(data.veh, data, i)
             for edge, spd in speed_list:
@@ -371,7 +371,7 @@ def main():
         # print rid, S / W, len(sp_list), radio, idx
 
         road_speed[rid] = [spd, n_sample, idx]
-    save_road_speed(conn, road_speed)
+    # save_road_speed(conn, road_speed)
     # save_roadspeed_bak(conn, road_speed)
     print estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
 
