@@ -67,15 +67,24 @@ def get_tti_v2(speed, def_speed):
 
 def get_tti_v1(speed, def_speed):
     """
+    深圳道路指数的算法
+    ratio = def_speed / speed
+    畅通 出行时间在1.0倍到1.3之间  0 - 2
+    基本畅通 在1.3到1.6之间  2 - 4
+    轻度拥堵 在1.6到1.9之间  4 - 6
+    中度拥堵 在1.9到2.2之间  6 - 8
+    严重拥堵 在2.2到2.5之间  8 - 10
     :param speed: 路段实际速度
     :param def_speed: 路段期望速度
     :return: tti
     """
+    if speed < 0.1:     # exclude 0
+        return 10.0
     radio = def_speed / speed
-    max_radio = def_speed / 5.0     # 严重拥堵情况下的最大比率
+    max_radio = 2.5
     min_radio = 1.0
     if radio > max_radio:
-        tti = 9.9
+        tti = 10.0
     elif radio < min_radio:
         tti = 0
     else:
@@ -92,7 +101,7 @@ def get_tti_v0(speed, def_speed):
     if speed < 1e-5:
         speed = 0.1
     radio = def_speed / speed
-    max_radio = 3.0
+    max_radio = 2.5
     min_radio = 1.0
     if radio > max_radio:
         tti = 9.9
@@ -108,3 +117,6 @@ def draw():
     y = [get_tti_v0(i, 1) for i in x]
     plt.plot(x, y)
     plt.show()
+
+
+get_tti_v1(1, 1.15)

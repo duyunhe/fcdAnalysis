@@ -189,6 +189,9 @@ class OnlineCarListener(object):
         try:
             str_isu = 'o' + info['VehicleNo'].encode('utf-8')       # online car
             lati, longi = info['Latitude'] / 1000000.0, info['Longitude'] / 1000000.0
+            state = info['BizStatus']
+            if state != 1 and state != 2:
+                return
             ort = info['Direction']
             speed = info['Speed']
             str_time = str(info['PositionTime'])
@@ -238,25 +241,25 @@ if __name__ == '__main__':
     conn1.set_listener('', FTListener())
     conn1.start()
     conn1.connect('admin', 'admin', wait=True)
-    # conn1.subscribe(destination='/topic/position_ft', ack='auto')
+    conn1.subscribe(destination='/topic/position_ft', ack='auto')
 
     conn = stomp.Connection10([('192.168.0.102', 61615)])
     conn.set_listener('', TYListener())
     conn.start()
     conn.connect('admin', 'admin', wait=True)
-    # conn.subscribe(destination='/topic/position_ty', ack='auto')
+    conn.subscribe(destination='/topic/position_ty', ack='auto')
 
     conn2 = stomp.Connection10([('192.168.0.102', 61615)])
     conn2.set_listener('', HQListener())
     conn2.start()
     conn2.connect('admin', 'admin', wait=True)
-    # conn2.subscribe(destination='/topic/position_hq', ack='auto')
+    conn2.subscribe(destination='/topic/position_hq', ack='auto')
 
     conn3 = stomp.Connection10([('192.168.0.102', 61615)])
     conn3.set_listener('', OnlineCarListener())
     conn3.start()
     conn3.connect('admin', 'admin', wait=True)
-    conn3.subscribe(destination='/topic/olData', ack='auto')
+    # conn3.subscribe(destination='/topic/olData', ack='auto')
 
     while True:
         time.sleep(1)

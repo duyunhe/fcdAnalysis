@@ -10,7 +10,7 @@ from fcd_processor import match2road
 import estimate_speed
 from datetime import datetime, timedelta
 from geo import bl2xy, calc_dist
-from tti import get_tti_v0, get_tti_v2
+from tti import get_tti_v1, get_tti_v2
 import matplotlib.pyplot as plt
 from time import clock
 import json
@@ -147,7 +147,6 @@ def get_gps_data_from_redis():
         m_res = conn.mget(keys)
         et = clock()
         veh_trace = {}
-        static_num = {}
         for data in m_res:
             try:
                 js_data = json.loads(data)
@@ -155,8 +154,8 @@ def get_gps_data_from_redis():
                 veh, str_time = js_data['isu'], js_data['speed_time']
                 speed = js_data['speed']
                 stime = datetime.strptime(str_time, "%Y-%m-%d %H:%M:%S")
-                state = js_data['load']
-                car_state = js_data['pos']
+                state = 1
+                car_state = 0
                 ort = js_data['ort']
                 if 119 < lng < 121 and 29 < lat < 31:
                     px, py = bl2xy(lat, lng)
@@ -165,10 +164,6 @@ def get_gps_data_from_redis():
                         veh_trace[veh].append(taxi_data)
                     except KeyError:
                         veh_trace[veh] = [taxi_data]
-                    try:
-                        static_num[veh] += 1
-                    except KeyError:
-                        static_num[veh] = 1
             except TypeError:
                 pass
         print "redis cost ", et - bt
@@ -179,7 +174,7 @@ def get_gps_data_from_redis():
             last_data = None
             for data in trace:
                 esti = True
-                dist = 0
+                # dist = 0
                 if last_data is not None:
                     dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
                     dt = (data.stime - last_data.stime).total_seconds()
@@ -192,15 +187,24 @@ def get_gps_data_from_redis():
                         esti = False
                     elif data.car_state == 1:  # 非精确
                         esti = False
-                    elif data.speed == last_data.speed and data.direction == last_data.direction:
-                        esti = False
-                    elif dist < 20:  # GPS的误差在10米，不准确
+                    # elif data.speed == last_data.speed and data.direction == last_data.direction:
+                    #     esti = False
+                    elif dist < 10:  # GPS的误差在10米，不准确
                         esti = False
                 last_data = data
                 if esti:
                     filter_trace.append(data)
+            if 4 <= len(filter_trace) <= 20:
+                new_trace[veh] = filter_trace
 
-            new_trace[veh] = filter_trace
+        # cnt static
+        cnt = {}
+        for veh, trace in new_trace.iteritems():
+            try:
+                cnt[len(trace)] += 1
+            except KeyError:
+                cnt[len(trace)] = 1
+        print cnt
     # print "get all gps data {0}".format(len(veh_trace))
     # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
     return new_trace
@@ -282,6 +286,7 @@ def draw_points(data_list):
 
 
 def save_road_speed(conn, road_speed):
+    bt = clock()
     sql = "delete from tb_road_speed where map_level = 1"
     cursor = conn.cursor()
     cursor.execute(sql)
@@ -295,14 +300,18 @@ def save_road_speed(conn, road_speed):
         dt = datetime.now()
         tup = (rid, float('%.2f' % speed), num, tti, dt)
         tup_list.append(tup)
-    cursor.executemany(sql, tup_list)
+        try:
+            cursor.execute(sql, tup)
+        except cx_Oracle.DatabaseError:
+            print tup
+    # cursor.executemany(sql, tup_list)
     conn.commit()
     cursor.close()
-    print "road speed updated!"
+    print "road speed updated!", clock() - bt
 
 
 def get_def_speed(conn):
-    sql = "select rid, speed from tb_road_def_speed"
+    sql = "select rid, speed from tb_road_def_speed where map_level = 1"
     cursor = conn.cursor()
     cursor.execute(sql)
     def_speed = {}
@@ -316,7 +325,7 @@ def get_def_speed(conn):
 
 def save_roadspeed_bak(conn, speed_dict):
     cursor = conn.cursor()
-    sql = "insert into tb_road_speed_bak values(:1, :2, :3, :4, :5)"
+    sql = "insert into TB_ROAD_SPEED_RESTORE values(:1, :2, :3, :4, :5, 1)"
     tup_list = []
     for rid, speed_list in speed_dict.iteritems():
         speed, num, tti = speed_list[:]
@@ -325,7 +334,10 @@ def save_roadspeed_bak(conn, speed_dict):
         DT = datetime.now()
         tup = (rid, speed, num, tti, DT)
         tup_list.append(tup)
-    cursor.executemany(sql, tup_list)
+    try:
+        cursor.executemany(sql, tup_list)
+    except cx_Oracle.DatabaseError:
+        print "insert Error"
     conn.commit()
 
 
@@ -348,26 +360,26 @@ def save_road_speed_pre(conn, road_speed, stime):
 def get_road_speed(conn, road_speed_detail):
     def_speed = get_def_speed(conn)
     road_speed = {}
-    his_speed_list = get_history_speed_list(conn, datetime.now())
+    # his_speed_list = get_history_speed_list(conn, datetime.now())
     for rid, sp_list in road_speed_detail.iteritems():
         W, S = 0, 0
         for sp, w in sp_list:
             S, W = S + sp * w, W + w
         spd = S / W
         n_sample = len(sp_list)
-        # 当采样点过少时，通过历史记录加权
+        # 当采样点过少时，假设道路通畅，用自由流速度加权
         if n_sample < 10:
-            # weight = 20 ?
-            spd = (spd * n_sample + his_speed_list[rid] * 20) / (n_sample + 20)
+            # weight = 10 - n_sample ?
+            spd = (spd * n_sample + def_speed[rid] * (10 - n_sample)) / 10
         # radio = def_speed[rid] / spd
-        idx = get_tti_v0(spd, def_speed[rid])
+        idx = get_tti_v1(spd, def_speed[rid])
         # print rid, S / W, len(sp_list), radio, idx
         road_speed[rid] = [spd, n_sample, idx]
     # 直接上历史记录
     for rid in range(ROAD_NUMBER):
         if rid not in road_speed.keys():
-            idx = get_tti_v2(his_speed_list[rid], def_speed[rid])
-            road_speed[rid] = [his_speed_list[rid], 0, idx]
+            idx = get_tti_v2(def_speed[rid], def_speed[rid])
+            road_speed[rid] = [def_speed[rid], 0, idx]
     return road_speed
 
 
@@ -407,24 +419,27 @@ def save_global_tti(conn, road_speed, db_time):
     """
     road_dist = {}
     cursor = conn.cursor()
-    sql = "select rid, road_desc from tb_road_state"
+    sql = "select rid, road_desc, direction from tb_road_state where map_level = 1"
     cursor.execute(sql)
     for item in cursor:
         rid = int(item[0])
         dist = float(item[1])
-        road_dist[rid] = dist
+        desc = int(item[2])
+        road_dist[rid] = (dist, desc)
     sql = "insert into TB_TRAFFIC_INDEX values(:1, :2, :3, :4, :5)"
     # tti, fast_speed, main_speed, congest_ratio
-    S, T, W = .0, .0, .0        # speed, tti, dist
+    S, T, W, MW = .0, .0, .0, .0        # speed, tti, dist, dist for main road
     congest_dist = .0
     for rid, item in road_speed.iteritems():
         speed, n, tti = item[:]
-        w = road_dist[rid]
+        w, d = road_dist[rid]
         W += w
         if tti > 4.0:
             congest_dist += w
-        S, T = S + speed * w, T + tti * w
-    mean_speed, mean_tti = S / W, T / W
+        if d == 1 and speed < 100:      # 有些异常数据
+            MW += w
+            S, T = S + speed * w, T + tti * w
+    mean_speed, mean_tti = S / MW, T / MW
     congest_ratio = congest_dist * 100.0 / W
     tup = (mean_tti, 50, mean_speed, congest_ratio, db_time)
     cursor.execute(sql, tup)
@@ -444,13 +459,15 @@ def main():
     bt = clock()
     road_temp = {}
     # 匹配计算
+    estimate_speed.normal_cnt, estimate_speed.error_cnt = 0, 0
     process_gps_data(trace_dict, road_info_dict=road_temp, mod_list=mod_list)
     print "update speed detail"
     # 每条道路的速度
     road_speed = get_road_speed(conn, road_temp)
-    print "matchData1.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+    print "matchData0.py main", estimate_speed.normal_cnt, estimate_speed.error_cnt
     # 保存当前路况
     save_road_speed(conn, road_speed)
+    # save_roadspeed_bak(conn, road_speed)
     # 当前交通指数
     save_global_tti(conn, road_speed, run_time)
 
@@ -467,8 +484,8 @@ if __name__ == '__main__':
     logging.basicConfig()
     scheduler = BlockingScheduler()
     # scheduler.add_job(tick, 'interval', days=1)
-    scheduler.add_job(main, 'cron', minute='*/5')
     main()
+    scheduler.add_job(main, 'cron', minute='*/5')
     try:
         scheduler.start()
     except SystemExit:

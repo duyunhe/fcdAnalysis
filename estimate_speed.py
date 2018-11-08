@@ -25,17 +25,17 @@ def get_speed_list_a1(travel_list, last_spd, cur_spd, ave_spd, itv_time):
     :param cur_spd: 
     :param ave_spd: 
     :param itv_time: 
-    :return: 
+    :return: list of [Edge, speed]
     """
     if len(travel_list) == 0:
         return []
 
-    if ave_spd > max(cur_spd, last_spd) + 15:
-        global error_cnt
-        error_cnt += 1
-        speed_list = [(cur_spd + last_spd + ave_spd) / 3] * len(travel_list)
-    else:
-        speed_list = [ave_spd] * len(travel_list)
+    # if ave_spd > max(cur_spd, last_spd) + 15:
+    #     global error_cnt
+    #     error_cnt += 1
+    #     speed_list = [(cur_spd + last_spd + ave_spd) / 3] * len(travel_list)
+    # else:
+    speed_list = [ave_spd] * len(travel_list)
     edge_list, dist_list = zip(*travel_list)
     seg_speed_list = zip(edge_list, speed_list)
 

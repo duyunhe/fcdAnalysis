@@ -40,7 +40,6 @@ class MapInfo:
 
         sql = "select * from tb_road_state where map_level = :1"
         tup = (map_level,)
-        # 单行线不予录入
         cursor = conn.cursor()
         cursor.execute(sql, tup)
         for item in cursor:

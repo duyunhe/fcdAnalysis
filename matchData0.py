@@ -147,7 +147,6 @@ def get_gps_data_from_redis():
         m_res = conn.mget(keys)
         et = clock()
         veh_trace = {}
-        static_num = {}
         for data in m_res:
             try:
                 js_data = json.loads(data)
@@ -155,8 +154,8 @@ def get_gps_data_from_redis():
                 veh, str_time = js_data['isu'], js_data['speed_time']
                 speed = js_data['speed']
                 stime = datetime.strptime(str_time, "%Y-%m-%d %H:%M:%S")
-                state = js_data['load']
-                car_state = js_data['pos']
+                state = 1
+                car_state = 0
                 ort = js_data['ort']
                 if 119 < lng < 121 and 29 < lat < 31:
                     px, py = bl2xy(lat, lng)
@@ -165,10 +164,6 @@ def get_gps_data_from_redis():
                         veh_trace[veh].append(taxi_data)
                     except KeyError:
                         veh_trace[veh] = [taxi_data]
-                    try:
-                        static_num[veh] += 1
-                    except KeyError:
-                        static_num[veh] = 1
             except TypeError:
                 pass
         print "redis cost ", et - bt
@@ -179,7 +174,7 @@ def get_gps_data_from_redis():
             last_data = None
             for data in trace:
                 esti = True
-                dist = 0
+                # dist = 0
                 if last_data is not None:
                     dist = calc_dist([data.px, data.py], [last_data.px, last_data.py])
                     dt = (data.stime - last_data.stime).total_seconds()
@@ -192,15 +187,24 @@ def get_gps_data_from_redis():
                         esti = False
                     elif data.car_state == 1:  # 非精确
                         esti = False
-                    elif data.speed == last_data.speed and data.direction == last_data.direction:
-                        esti = False
-                    elif dist < 20:  # GPS的误差在10米，不准确
+                    # elif data.speed == last_data.speed and data.direction == last_data.direction:
+                    #     esti = False
+                    elif dist < 15:  # GPS的误差在10米，不准确
                         esti = False
                 last_data = data
                 if esti:
                     filter_trace.append(data)
+            if 4 <= len(filter_trace) <= 20:
+                new_trace[veh] = filter_trace
 
-            new_trace[veh] = filter_trace
+        # cnt static
+        cnt = {}
+        for veh, trace in new_trace.iteritems():
+            try:
+                cnt[len(trace)] += 1
+            except KeyError:
+                cnt[len(trace)] = 1
+        print cnt
     # print "get all gps data {0}".format(len(veh_trace))
     # print "all car:{0}, ave:{1}".format(len(static_num), len(trace) / len(static_num))
     return new_trace
@@ -295,7 +299,11 @@ def save_road_speed(conn, road_speed):
         dt = datetime.now()
         tup = (rid, float('%.2f' % speed), num, tti, dt)
         tup_list.append(tup)
-    cursor.executemany(sql, tup_list)
+        try:
+            cursor.execute(sql, tup)
+        except cx_Oracle.DatabaseError:
+            print tup
+    # cursor.executemany(sql, tup_list)
     conn.commit()
     cursor.close()
     print "road speed updated!"
@@ -444,11 +452,12 @@ def main():
     bt = clock()
     road_temp = {}
     # 匹配计算
+    estimate_speed.normal_cnt, estimate_speed.error_cnt = 0, 0
     process_gps_data(trace_dict, road_info_dict=road_temp, mod_list=mod_list)
     print "update speed detail"
     # 每条道路的速度
     road_speed = get_road_speed(conn, road_temp)
-    print "matchData0.py main", estimate_speed.normal_cnt, estimate_speed.ab_cnt, estimate_speed.error_cnt
+    print "matchData0.py main", estimate_speed.normal_cnt, estimate_speed.error_cnt
     # 保存当前路况
     save_road_speed(conn, road_speed)
     # 当前交通指数
@@ -458,8 +467,8 @@ def main():
     print "main process {0}".format(len(trace_dict)), et - bt, run_time
     # draw_trace(dtrace)
     # draw_points(mod_list)
-    draw_map(road_speed)
-    plt.show()
+    # draw_map(road_speed)
+    # plt.show()
     conn.close()
 
 
